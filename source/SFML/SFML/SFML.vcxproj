@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32"><Configuration>Debug</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32"><Configuration>Release</Configuration><Platform>Win32</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{EBA6D571-D189-4CE1-8125-E5FE6201CFAB}</ProjectGuid><RootNamespace>MilkFrog</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Debug'">true</UseDebugLibraries>
+    <UseDebugLibraries Condition="'$(Configuration)'!='Debug'">false</UseDebugLibraries>
+    <PlatformToolset Condition="'$(PlatformToolset)'==''">$(DefaultPlatformToolset)</PlatformToolset><CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <SfmlRoot>$(ProjectDir)..\..\vendor\SFML-2.6.2\</SfmlRoot>
+    <OutDir>$(ProjectDir)..\..\dist\milk-frog-4k\</OutDir><IntDir>$(ProjectDir)..\..\build\$(Configuration)\</IntDir>
+    <TargetName>MilkFrog</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(SfmlRoot)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary><Optimization Condition="'$(Configuration)'=='Release'">MaxSpeed</Optimization>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(SfmlRoot)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>sfml-graphics.lib;sfml-window.lib;sfml-system.lib;user32.lib;gdi32.lib;shell32.lib;ole32.lib;windowscodecs.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Windows</SubSystem><EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup><ClCompile Include="Source.cpp" /><ClInclude Include="ParticleEffects.hpp" /><ClInclude Include="DeskSurface.hpp" /><ClInclude Include="KeyboardShadow.hpp" /><ClInclude Include="ArmShadow.hpp" /><ClInclude Include="KeyboardRear.hpp" /><ResourceCompile Include="SFML.rc" /><Image Include="milk-frog.ico" /></ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyAssets" AfterTargets="Build">
+    <ItemGroup><RuntimeAsset Include="$(ProjectDir)base*.png;$(ProjectDir)body-pressed.png;$(ProjectDir)tabletop.png;$(ProjectDir)keyboard-corner.png;$(ProjectDir)config.txt;$(SfmlRoot)bin\sfml-graphics-2.dll;$(SfmlRoot)bin\sfml-window-2.dll;$(SfmlRoot)bin\sfml-system-2.dll;$(SfmlRoot)license.md" /></ItemGroup>
+    <Copy SourceFiles="@(RuntimeAsset)" DestinationFolder="$(OutDir)" />
+    <ItemGroup><LaughAsset Include="$(ProjectDir)..\..\assets\milk-frog\laugh\laugh-frames.mfa;$(ProjectDir)..\..\assets\milk-frog\laugh\laugh.wav" /></ItemGroup>
+    <Copy SourceFiles="@(LaughAsset)" DestinationFolder="$(OutDir)" />
+  </Target>
+</Project>

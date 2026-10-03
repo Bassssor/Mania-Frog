@@ -1,0 +1,20 @@
+# Generated output and developer-local state
+source/build/
+source/dist/
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+.vs/
+*.user
+*.suo
+*.pdb
+*.obj
+*.log
+.env
+.env.*
+!.env.example
+browser-profile*/
+userdata/
+scene-before.json
+publish-audit.json

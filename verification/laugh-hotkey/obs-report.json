@@ -1,0 +1,10 @@
+{
+  "native_source": "input-overlay",
+  "Ctrl+Q": "PASS",
+  "Q_alone_ignored": "PASS",
+  "restart": "PASS",
+  "old_chord_ignored_after_reload": "PASS",
+  "Ctrl+Shift+Q_right_modifiers": "PASS",
+  "no_OBS_restart_for_settings": "PASS",
+  "gameplay_cancellation_and_exact_restoration": "PASS"
+}

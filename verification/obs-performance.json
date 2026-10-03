@@ -1,0 +1,28 @@
+{
+  "idle": {
+    "activeFps": 120.0000048000002,
+    "availableDiskSpace": 0.0,
+    "averageFrameRenderTime": 0.220268,
+    "cpuUsage": 0.7520533831744263,
+    "memoryUsage": 371.234375,
+    "outputSkippedFrames": 0,
+    "outputTotalFrames": 0,
+    "renderSkippedFrames": 69,
+    "renderTotalFrames": 7698,
+    "webSocketSessionIncomingMessages": 2,
+    "webSocketSessionOutgoingMessages": 2
+  },
+  "held": {
+    "activeFps": 120.0000048000002,
+    "availableDiskSpace": 0.0,
+    "averageFrameRenderTime": 1.060052,
+    "cpuUsage": 0.9028642306338952,
+    "memoryUsage": 398.08984375,
+    "outputSkippedFrames": 0,
+    "outputTotalFrames": 0,
+    "renderSkippedFrames": 69,
+    "renderTotalFrames": 8419,
+    "webSocketSessionIncomingMessages": 3,
+    "webSocketSessionOutgoingMessages": 3
+  }
+}

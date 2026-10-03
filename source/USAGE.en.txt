@@ -1,0 +1,56 @@
+# MilkFrog
+
+[中文](README.zh.md)
+
+Run **MilkFrog.exe** directly. Installation and adjacent DLL/image files are unnecessary.
+A frog icon appears in the Windows notification area, possibly inside the **^** hidden-icons menu.
+Right-click it to enlarge, shrink, toggle always-on-top, change key bindings, or exit.
+The character offers the same context menu. Drag it with the left mouse button to move it.
+The application menus currently use Chinese labels.
+
+## Change key bindings
+
+Choose “修改键位…” (Change keys), click a position, press the desired key, then click “保存” (Save).
+The four default positions are D/F/J/K: the character's left outer, left inner, right inner, and right outer key.
+Bindings must be distinct. “取消” discards changes; “恢复 D / F / J / K” restores the defaults.
+Saving updates both the input mapping and the keycap legends immediately.
+Preferences persist across restarts and EXE updates in `%LOCALAPPDATA%/MilkFrog/config.txt`.
+
+| Key | Legend |
+| --- | --- |
+| Left / right Ctrl | LC / RC |
+| Left / right Shift | LS / RS |
+| Left / right Alt | LA / RA |
+| Left / right Windows | LW / RW |
+| Space / Enter / Backspace | SPC / ENT / BSP |
+| Tab / Caps Lock | TAB / CAP |
+| Page Up / Page Down / Home / End | PGU / PGD / HOM / END |
+| Insert / Delete | INS / DEL |
+| Num Lock / Scroll Lock / Print Screen / Pause | NUM / SCR / PRT / PAU |
+| Numeric keypad | N0–N9, N+, N-, N*, N/, N. |
+| Function keys | F1–F24 |
+
+Legends contain at most three characters. They stay centered, face the character, and scale to fit inside the keycap.
+Left and right modifiers are separate bindings. Esc cancels an ongoing capture.
+Uncommon hardware keys use K followed by a two-digit hexadecimal key code.
+
+## OBS streaming
+
+The existing scene “奶蛙打音游” uses the native `input-overlay` source “奶蛙 · DFJK 输入叠加”
+and its native animation/particle filter “奶蛙 DFJK · 原生动作与粒子”.
+Streaming does not require launching the desktop EXE. Disable the OBS preview to see the character only in the output.
+
+Keep the PNG, JSON, atlases, and plugin in `obs-input-overlay/`; OBS references these assets.
+Desktop key preferences and the current OBS DFJK mapping are independent.
+See the [OBS instructions](obs-input-overlay/README.en.md).
+
+## Files
+
+- `MilkFrog.exe`: directly runnable, single-file desktop application.
+- `obs-input-overlay/`: active OBS input-overlay assets and native plugin.
+- `source/`: final source, required dependencies, art references, and build tools.
+- `verification/`: startup, tray, keybinding, label-bounds, and OBS verification records.
+- `README.zh.md` / `README.en.md`: Chinese and English documentation.
+
+Project location: `the downloaded project directory`.
+See the [source instructions](source/README.en.md) to rebuild. No ZIP archive is produced.

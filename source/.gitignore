@@ -1,0 +1,6 @@
+/build/
+/dist/
+/tools/*.exe
+/tools/*.pdb
+__pycache__/
+*.pyc

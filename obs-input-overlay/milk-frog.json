@@ -1,0 +1,29 @@
+{
+  "overlay_width": 880,
+  "overlay_height": 880,
+  "flags": 0,
+  "elements": [
+    {
+      "id": "milk-frog-idle",
+      "type": 0,
+      "z_level": 0,
+      "pos": [
+        0,
+        0
+      ],
+      "mapping": [
+        1,
+        1,
+        880,
+        880
+      ]
+    }
+  ],
+  "milk_frog": {
+    "version": 1,
+    "tile_size": 880,
+    "stride": 883,
+    "background_atlas": "background-atlas.png",
+    "foreground_atlas": "foreground-atlas.png"
+  }
+}

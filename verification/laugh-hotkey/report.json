@@ -1,0 +1,11 @@
+{
+  "menu": "重开大笑键",
+  "default": "F5",
+  "supported": "Single keys or up to 8-key chords including Ctrl+Q and Ctrl+Shift+Q",
+  "settings_dialog_and_capture": "PASS",
+  "persistence_cancel_reset_conflict_and_gameplay_settings": "PASS",
+  "OBS_native_hot_reload": "PASS",
+  "installed_plugin_matches_final": true,
+  "desktop_exe_bytes": 62394368,
+  "original_user_preferences_restored_after_tests": true
+}

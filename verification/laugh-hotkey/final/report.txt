@@ -1,0 +1,1 @@
+PASS: actual settings dialog and keyboard-hook capture, Ctrl+Q and Ctrl+Shift+Q, right Ctrl, autorepeat suppression, restart, gameplay cancellation, persistence, cancel, Esc, restore F5, conflicting keys and gameplay-settings preservation.

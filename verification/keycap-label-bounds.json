@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "virtualKeys": 255,
+  "keycapPositions": 4,
+  "renderedKeycapChecks": 1020,
+  "maximumLabelCharacters": 3,
+  "nonzeroAlphaPixelsInsideKeycapInsets": 634577,
+  "leftRightModifiersDistinct": true,
+  "modifierAndSpaceCombinations": 16
+}

@@ -1,0 +1,94 @@
+{
+  "source": "user-supplied Seedance source video",
+  "durationSeconds": 9.0,
+  "fps": "24/1",
+  "frames": 216,
+  "dimensions": [
+    720,
+    720
+  ],
+  "transparentPixels": 45923878,
+  "softAlphaPixels": 1104132,
+  "enclosedBlackPixelsPreserved": 594800,
+  "transparentVideo": "milk-frog-laugh-final-transparent.webm",
+  "checkerboardPreview": "milk-frog-laugh-final-preview.mp4",
+  "watermarkRepairPixels": 963112,
+  "audioSource": "laugh.wav",
+  "originalAudioIncluded": false,
+  "trimReason": "Original generated desk contour becomes a staircase in the final second",
+  "retainedIntervalSeconds": [
+    0,
+    9.0
+  ],
+  "knownLimitations": [
+    "Generated camera zoom remains",
+    "Endpoints do not yet match native idle",
+    "Silhouette matting may retain enclosed background gaps"
+  ],
+  "encodedMediaVerification": {
+    "preview.mp4": {
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 720,
+            "height": 720,
+            "avg_frame_rate": "24/1",
+            "nb_read_frames": "216",
+            "tags": {}
+          },
+          {
+            "codec_name": "aac",
+            "avg_frame_rate": "0/0",
+            "nb_read_frames": "388",
+            "tags": {}
+          }
+        ],
+        "format": {
+          "duration": "9.000000"
+        }
+      },
+      "replacementAudioCorrelation": 0.9972580773699256,
+      "earlySilenceRms": 0.0,
+      "sourceAudioIncluded": false
+    },
+    "transparent.webm": {
+      "metadata": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "vp9",
+            "width": 720,
+            "height": 720,
+            "avg_frame_rate": "24/1",
+            "nb_read_frames": "216",
+            "tags": {
+              "alpha_mode": "1"
+            }
+          },
+          {
+            "codec_name": "opus",
+            "avg_frame_rate": "0/0",
+            "nb_read_frames": "451",
+            "tags": {}
+          }
+        ],
+        "format": {
+          "duration": "9.008000"
+        }
+      },
+      "replacementAudioCorrelation": 0.996862452104918,
+      "earlySilenceRms": 0.0,
+      "sourceAudioIncluded": false,
+      "alpha": {
+        "transparentPixels": 198586,
+        "opaquePixels": 311075,
+        "mouthAlpha": 255,
+        "cornerAlpha": 0
+      }
+    }
+  }
+}
