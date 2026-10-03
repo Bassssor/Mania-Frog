@@ -1,4 +1,4 @@
-# Mania-Frog
+# Mania-Frog （4K Only）
 
 [中文](README.zh.md)
 
