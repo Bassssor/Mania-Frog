@@ -24,6 +24,8 @@
     "tile_size": 880,
     "stride": 883,
     "background_atlas": "background-atlas.png",
-    "foreground_atlas": "foreground-atlas.png"
+    "foreground_atlas": "foreground-atlas.png",
+    "dynamic_key_labels": true,
+    "keybindings_file": "keybindings.json"
   }
 }

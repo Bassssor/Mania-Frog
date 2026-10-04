@@ -40,3 +40,11 @@ MilkFrog.exe --smoke-test
 
 最终验证记录位于上级 `verification/`。历史修改见 `MODIFICATIONS.md`，上游说明和致谢见 `UPSTREAM.md`。
 许可证位于 `obs-native/LICENSE.txt` 与 `vendor/SFML-2.6.2/license.md`。
+
+
+
+## OBS key setup utility
+
+`tools/BuildObsKeySetup.ps1` builds the standalone `../obs-input-overlay/MilkFrogKeySetup.exe`. `tools/ExportInputOverlay.py` exports unlabelled atlas layers and preserves existing OBS bindings. The native plugin watches `keybindings.json`; legends are rendered behind fingers before particle composition. `shared/KeyNames.hpp` keeps desktop and OBS abbreviations consistent.
+
+Verification: `MilkFrogKeySetup.exe --verify output-directory` checks 255 key names at four positions. `tools/VerifyObsKeySetup.py` exercises real UI capture, Ctrl+Shift+Q, save/reset/cancel, 16 remapped OBS poses, old-key removal, modifier distinction and video cancellation. Set `OBS_EXE` to your OBS executable before the live test.

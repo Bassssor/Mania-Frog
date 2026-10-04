@@ -17,6 +17,7 @@ if($LASTEXITCODE -ne 0){throw 'Tray and keybinding validation failed'}
 if($LASTEXITCODE -ne 0){throw 'Native laughter playback validation failed'}
 & $executable --verify-laugh-hotkey (Join-Path $root 'build\laugh-hotkey-verification')
 if($LASTEXITCODE -ne 0){throw 'Laughter hotkey settings validation failed'}
+& (Join-Path $PSScriptRoot 'BuildObsKeySetup.ps1')
 & python (Join-Path $PSScriptRoot 'ExportInputOverlay.py')
 if($LASTEXITCODE -ne 0){throw 'OBS preset export failed'}
 Write-Output 'Built the final standalone EXE and native OBS preset. No ZIP archive was created.'

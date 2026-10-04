@@ -20,7 +20,7 @@
 
 OBS 使用真正的 **Input Overlay / 输入叠加** 源及本项目的原生动画滤镜，无需运行桌宠 EXE。关闭 OBS 预览后，角色仍进入直播或录制输出。笑声音频源关闭本地监听即可仅进入输出。
 
-下载完整项目，按照 [OBS 中文说明](obs-input-overlay/README.zh.md) 安装。提供的插件面向 **64 位 Windows、OBS 32.2.2**；当前 OBS 敲键映射固定为 DFJK，独立于桌宠的四键设置。“重开大笑键”设置会同步到 OBS。
+下载完整项目，按照 [OBS 中文说明](obs-input-overlay/README.zh.md) 安装。提供的插件面向 **64 位 Windows、OBS 32.2.2**；OBS 默认 DFJK，可通过 `obs-input-overlay/MilkFrogKeySetup.exe` 快捷修改四键及“重开大笑键”，保存后自动更新素材和绑定，无需重启 OBS。OBS 四键设置独立于桌宠。“重开大笑键”设置会同步到 OBS。
 
 ## 项目内容
 

@@ -56,7 +56,7 @@ Uncommon hardware keys use K followed by a two-digit hexadecimal key code.
 
 Follow the [OBS installation guide](obs-input-overlay/README.en.md) to add a real Input Overlay source, the native animation filter, and the laughter audio source. The desktop EXE is unnecessary for streaming. Disable OBS preview to hide the character locally while keeping it in stream/recording output. Set the audio source to Monitor Off for output-only laughter.
 
-The bundled plugin targets 64-bit Windows and OBS 32.2.2. Keep the entire `obs-input-overlay/` directory together. OBS gameplay keys currently remain DFJK, independently of desktop gameplay preferences; the laughter shortcut is shared.
+The bundled plugin targets 64-bit Windows and OBS 32.2.2. Keep the entire `obs-input-overlay/` directory together. OBS defaults to DFJK. Run `obs-input-overlay/MilkFrogKeySetup.exe` to change its four gameplay keys and the laughter shortcut; saving updates legends and bindings without restarting OBS. Desktop gameplay preferences are independent; the laughter shortcut is shared.
 
 ## Files
 

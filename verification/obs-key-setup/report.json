@@ -1,0 +1,95 @@
+{
+  "real_UI_capture_save_reset_cancel": "PASS",
+  "Ctrl_Shift_Q_capture_and_persistence": "PASS",
+  "saved_laughter_chord_updates_OBS_and_old_F5_is_ignored": "PASS",
+  "native_source": "input-overlay",
+  "combinations": [
+    {
+      "mask": 0,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 1,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 2,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 3,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 4,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 5,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 6,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 7,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 8,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 9,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 10,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 11,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 12,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 13,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 14,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    },
+    {
+      "mask": 15,
+      "alpha_error": 0,
+      "opaque_RGB_error": 1
+    }
+  ],
+  "old_keys_removed": "PASS",
+  "remap_while_old_key_held": "PASS",
+  "left_right_control_distinct": "PASS",
+  "duplicate_rejection_preserves_configuration": "PASS",
+  "new_gameplay_key_cancels_video": "PASS",
+  "no_OBS_restart_after_key_changes": "PASS",
+  "window_output_size_unchanged": true
+}

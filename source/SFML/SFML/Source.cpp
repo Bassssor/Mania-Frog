@@ -15,6 +15,7 @@
 #include "ArmShadow.hpp"
 #include "KeyboardRear.hpp"
 #include "../../shared/LaughPlayback.hpp"
+#include "../../shared/KeyNames.hpp"
 #include <mmsystem.h>
 
 namespace {
@@ -38,7 +39,7 @@ void SyncLaughAudio() {
     PlaySoundW(nullptr,nullptr,0);
     if(laughPlayback.playing)PlaySoundW(L"laugh.wav",nullptr,SND_FILENAME|SND_ASYNC|SND_NODEFAULT);
 }
-bool redraw = true, topmost = true;
+bool redraw = true, topmost = true, drawKeyLabels = true;
 int size = 380;
 constexpr float AnimationInterval=1.f/120.f;
 constexpr UINT TrayMessage=WM_APP+1, CapturedKeyMessage=WM_APP+2;
@@ -209,69 +210,7 @@ void LoadConfig() {
     pendingBursts=0;
     SyncKeys();
 }
-std::wstring KeyName(int key) {
-    if ((key >= '0' && key <= '9') || (key >= 'A' && key <= 'Z')) return std::wstring(1, static_cast<wchar_t>(key));
-    if (key == VK_OEM_COMMA) return L",";
-    if (key == VK_OEM_PERIOD) return L".";
-    if (key == VK_SPACE) return L"SPC";
-    if (key >= VK_F1 && key <= VK_F24) return L"F" + std::to_wstring(key - VK_F1 + 1);
-    if(key==VK_LEFT)return L"←";
-    if(key==VK_RIGHT)return L"→";
-    if(key==VK_UP)return L"↑";
-    if(key==VK_DOWN)return L"↓";
-    if(key==VK_RETURN)return L"ENT";
-    if(key==VK_TAB)return L"TAB";
-    if(key==VK_BACK)return L"BSP";
-    if(key==VK_ESCAPE)return L"ESC";
-    if(key==VK_LSHIFT)return L"LS";
-    if(key==VK_RSHIFT)return L"RS";
-    if(key==VK_SHIFT)return L"SHF";
-    if(key==VK_LCONTROL)return L"LC";
-    if(key==VK_RCONTROL)return L"RC";
-    if(key==VK_CONTROL)return L"CTL";
-    if(key==VK_LMENU)return L"LA";
-    if(key==VK_RMENU)return L"RA";
-    if(key==VK_MENU)return L"ALT";
-    if(key==VK_CAPITAL)return L"CAP";
-    if(key==VK_PRIOR)return L"PGU";
-    if(key==VK_NEXT)return L"PGD";
-    if(key==VK_HOME)return L"HOM";
-    if(key==VK_END)return L"END";
-    if(key==VK_INSERT)return L"INS";
-    if(key==VK_DELETE)return L"DEL";
-    if(key==VK_NUMLOCK)return L"NUM";
-    if(key==VK_SCROLL)return L"SCR";
-    if(key==VK_SNAPSHOT)return L"PRT";
-    if(key==VK_PAUSE)return L"PAU";
-    if(key==VK_LWIN)return L"LW";
-    if(key==VK_RWIN)return L"RW";
-    if(key==VK_APPS)return L"APP";
-    if(key>=VK_NUMPAD0 && key<=VK_NUMPAD9)return L"N"+std::to_wstring(key-VK_NUMPAD0);
-    if(key==VK_MULTIPLY)return L"N*";
-    if(key==VK_ADD)return L"N+";
-    if(key==VK_SUBTRACT)return L"N-";
-    if(key==VK_DECIMAL)return L"N.";
-    if(key==VK_DIVIDE)return L"N/";
-    if(key==VK_VOLUME_MUTE)return L"MUT";
-    if(key==VK_VOLUME_DOWN)return L"V-";
-    if(key==VK_VOLUME_UP)return L"V+";
-    if(key==VK_MEDIA_NEXT_TRACK)return L"NXT";
-    if(key==VK_MEDIA_PREV_TRACK)return L"PRV";
-    if(key==VK_MEDIA_STOP)return L"STP";
-    if(key==VK_MEDIA_PLAY_PAUSE)return L"PLY";
-    if(key==VK_OEM_1)return L";";
-    if(key==VK_OEM_PLUS)return L"=";
-    if(key==VK_OEM_MINUS)return L"-";
-    if(key==VK_OEM_2)return L"/";
-    if(key==VK_OEM_3)return L"`";
-    if(key==VK_OEM_4)return L"[";
-    if(key==VK_OEM_5 || key==VK_OEM_102)return L"\\";
-    if(key==VK_OEM_6)return L"]";
-    if(key==VK_OEM_7)return L"'";
-    // Unusual hardware keys also receive a deterministic three-character
-    // label, instead of a potentially long, localized Windows key name.
-    wchar_t label[4]{};swprintf_s(label,L"K%02X",key&255);return label;
-}
+using frog::KeyName;
 
 const std::array<sf::Vector2f,4> KeyCenters={sf::Vector2f(694.f,543.f),sf::Vector2f(594.f,526.f),
     sf::Vector2f(498.f,510.f),sf::Vector2f(408.f,495.f)};
@@ -481,7 +420,7 @@ public:
         // Key legends face the character. D/F are screen-right and J/K
         // screen-left. Positions are the visible top-surface centers, before
         // hand occlusion; legends belong to the key, not on top of a finger.
-        for (unsigned i = 0; i < keys.size(); ++i) {
+        for (unsigned i = 0; drawKeyLabels && i < keys.size(); ++i) {
             target.draw(KeyLabel(keys[i],i));
         }
         // Both keycaps and base are a single stationary image. Bloom lies
@@ -1345,6 +1284,20 @@ int main(int argc, char** argv) {
     if(argc>=4 && std::string(argv[3])=="--default-keys"){keys=DefaultKeys;held=0;pendingBursts=0;}
     Artwork artwork;
     if (!artwork.Load()) return 1;
+    if(argc>=3 && std::string(argv[1])=="--export-obs-assets") {
+        keys=DefaultKeys;drawKeyLabels=false;
+        const auto directory=std::filesystem::absolute(argv[2]);std::filesystem::create_directories(directory);
+        sf::RenderTexture target;if(!target.create(SceneSize,SceneSize))return 2;
+        target.setView(sf::View(sf::FloatRect(ViewX,1.f,float(SceneSize),float(SceneSize))));
+        for(unsigned mask=0;mask<16;++mask) {
+            artwork.Draw(target,mask,true,false,true,false);target.display();
+            if(!StraightImage(target.getTexture()).saveToFile((directory/("background-"+std::to_string(mask)+".png")).string()))return 3;
+            artwork.DrawForeground(target,mask);target.display();
+            if(!StraightImage(target.getTexture()).saveToFile((directory/("foreground-"+std::to_string(mask)+".png")).string()))return 4;
+        }
+        artwork.Draw(target,0,true,false);target.display();
+        return StraightImage(target.getTexture()).saveToFile((directory/"state-0.png").string())?0:5;
+    }
     if (argc >= 3 && std::string(argv[1]) == "--verify-labels") return VerifyLabels(artwork,argv[2]);
     if (argc >= 3 && std::string(argv[1]) == "--verify-assets") return Verify(artwork, argv[2]);
     if (argc >= 3 && std::string(argv[1]) == "--preview-effects") return PreviewEffects(artwork, argv[2]);

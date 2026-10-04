@@ -12,6 +12,7 @@
 #include <thread>
 #include "Fountain.hpp"
 #include "../shared/LaughPlayback.hpp"
+#include "../shared/ObsKeyLabels.hpp"
 #include <util/platform.h>
 #include <mmsystem.h>
 
@@ -27,6 +28,8 @@ std::atomic<DWORD> hookThreadId{0};
 HHOOK keyboardHook = nullptr;
 std::mutex playbackMutex;
 frog::LaughPlayback playback;
+frog::ObsBindings gameplayKeys=frog::DefaultObsBindings;
+std::filesystem::path gameplayConfig;
 void reloadLaughHotkey(bool force=false) {
     static std::filesystem::file_time_type previous=std::filesystem::file_time_type::min();
     const auto path=frog::LaughConfigPath();std::error_code error;
@@ -37,6 +40,7 @@ void reloadLaughHotkey(bool force=false) {
     std::lock_guard<std::mutex> lock(playbackMutex);
     if(force || !(playback.hotkey==chord)) {
         playback.setHotkey(chord);playback.syncPressed();
+        heldKeys=frog::ObsHeldMask(gameplayKeys,playback.pressed);
         blog(LOG_INFO,"[milk-frog] Laughter hotkey: %s",chord.text().c_str());
     }
 }
@@ -44,24 +48,36 @@ frog::LaughPlayback playbackSnapshot() {
     std::lock_guard<std::mutex> lock(playbackMutex);
     playback.frame(frog::NowNs());return playback;
 }
-unsigned bitFor(DWORD code) {
-    switch (code) { case 'D':return 1; case 'F':return 2; case 'J':return 4; case 'K':return 8; default:return 0; }
+void reloadGameplayBindings() {
+    static std::filesystem::path previousPath;
+    static std::filesystem::file_time_type previousTime=std::filesystem::file_time_type::min();
+    std::filesystem::path path;
+    {std::lock_guard<std::mutex> lock(playbackMutex);path=gameplayConfig;}
+    if(path.empty())return;
+    std::error_code error;auto time=std::filesystem::last_write_time(path,error);
+    if(error || (path==previousPath && time==previousTime))return;
+    frog::ObsBindings candidate{};
+    if(!frog::ReadObsBindings(path,candidate))return; // Keep the last valid mapping.
+    previousPath=path;previousTime=time;
+    std::lock_guard<std::mutex> lock(playbackMutex);
+    if(gameplayKeys==candidate)return;
+    gameplayKeys=candidate;playback.syncPressed();
+    const unsigned mask=frog::ObsHeldMask(gameplayKeys,playback.pressed);heldKeys=mask;
+    if(mask)playback.stop();
+    blog(LOG_INFO,"[milk-frog] OBS gameplay keys: %u %u %u %u",candidate[0],candidate[1],candidate[2],candidate[3]);
 }
 LRESULT CALLBACK keyboardProc(int code, WPARAM message, LPARAM value) {
     if (code >= 0) {
         auto *key = reinterpret_cast<KBDLLHOOKSTRUCT *>(value);
-        unsigned bit = bitFor(key->vkCode);
         const bool down=message==WM_KEYDOWN || message==WM_SYSKEYDOWN;
         const bool up=message==WM_KEYUP || message==WM_SYSKEYUP;
         if(down || up) {
             std::lock_guard<std::mutex> lock(playbackMutex);
-            playback.key(key->vkCode,down,bit!=0,heldKeys.load()!=0,frog::NowNs());
-        }
-        if (bit) {
-            if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN) {
-                unsigned old = heldKeys.fetch_or(bit);
-                if (!(old & bit)) for (int i=0;i<4;++i) if (bit == (1u<<i)) ++strikes[i];
-            } else if (message == WM_KEYUP || message == WM_SYSKEYUP) heldKeys.fetch_and(~bit);
+            const unsigned old=heldKeys.load();
+            bool bound=false;for(auto binding:gameplayKeys)bound|=frog::BindingMatches(binding,key->vkCode);
+            playback.key(key->vkCode,down,bound,old!=0,frog::NowNs());
+            const unsigned mask=frog::ObsHeldMask(gameplayKeys,playback.pressed);heldKeys=mask;
+            for(int i=0;i<4;++i)if((mask&~old)&(1u<<i))++strikes[i];
         }
     }
     return CallNextHookEx(keyboardHook, code, message, value);
@@ -94,7 +110,9 @@ struct Filter {
     gs_effect_t *effect = nullptr;
     gs_texrender_t *composed = nullptr;
     frog::LaughFrames laugh;
-    gs_texture_t *laughTexture=nullptr;
+    gs_texture_t *laughTexture=nullptr,*labelsTexture=nullptr;
+    frog::ObsBindings labelKeys=frog::DefaultObsBindings,renderedKeys{};
+    bool dynamicLabels=false;
     int laughFrame=-1;
     bool laughLoaded=false;
     std::array<gs_vertbuffer_t *,3> buffers{};
@@ -137,7 +155,7 @@ struct Filter {
         obs_enter_graphics();
         gs_image_file4_free(&background); gs_image_file4_free(&foreground);
         gs_texture_destroy(halo); gs_effect_destroy(effect); gs_texrender_destroy(composed);
-        gs_texture_destroy(laughTexture);
+        gs_texture_destroy(laughTexture);gs_texture_destroy(labelsTexture);
         for(auto *buffer:buffers)gs_vertexbuffer_destroy(buffer);
         obs_leave_graphics();
     }
@@ -158,6 +176,12 @@ struct Filter {
             blog(LOG_ERROR,"[milk-frog] configuration is not a compatible mascot preset");
         } else {
             auto dir=std::filesystem::u8path(path).parent_path();
+            dynamicLabels=obs_data_get_bool(spec,"dynamic_key_labels");
+            if(dynamicLabels) {
+                auto name=std::string(obs_data_get_string(spec,"keybindings_file"));if(name.empty())name="keybindings.json";
+                std::lock_guard<std::mutex> inputLock(playbackMutex);gameplayConfig=dir/std::filesystem::u8path(name);
+            }
+
             laughLoaded=laugh.load(dir/L"laugh-frames.mfa");
             if(!laughLoaded)blog(LOG_WARNING,"[milk-frog] Laughter video unavailable; normal inputs remain usable.");
             auto bg=(dir/std::filesystem::u8path(obs_data_get_string(spec,"background_atlas"))).u8string();
@@ -175,8 +199,11 @@ struct Filter {
     }
     void tick(float seconds) {
         std::lock_guard<std::mutex> lock(mutex);
-        unsigned mask=heldKeys.load(),pending=0;
-        for(int i=0;i<4;++i) {unsigned now=strikes[i].load();if(now!=seen[i])pending|=1u<<i;seen[i]=now;}
+        frog::ObsBindings currentKeys;unsigned mask=0,pending=0;
+        {std::lock_guard<std::mutex> inputLock(playbackMutex);
+         currentKeys=gameplayKeys;mask=heldKeys.load();
+         for(int i=0;i<4;++i) {unsigned now=strikes[i].load();if(now!=seen[i])pending|=1u<<i;seen[i]=now;}}
+        if(dynamicLabels && currentKeys!=labelKeys){labelKeys=currentKeys;fountain=frog::Fountain();dirty=true;}
         dirty=dirty || held!=mask || pending || fountain.active(); held=mask;
         auto state=playbackSnapshot();
         const int frame=laughLoaded?state.frame(frog::NowNs()):-1;
@@ -270,6 +297,13 @@ struct Filter {
             if(parent)obs_source_skip_video_filter(source);return;
         }
         if(dirty) {
+            if(dynamicLabels && (!labelsTexture || renderedKeys!=labelKeys)) {
+                const auto pixels=frog::RenderObsKeyLabels(labelKeys);
+                if(!pixels.empty()) {
+                    if(!labelsTexture)labelsTexture=gs_texture_create(880,880,GS_RGBA,1,nullptr,GS_DYNAMIC);
+                    if(labelsTexture){gs_texture_set_image(labelsTexture,pixels.data(),880*4,false);renderedKeys=labelKeys;}
+                }
+            }
             gs_texrender_reset(composed);
             if(gs_texrender_begin(composed,880,880)) {
                 vec4 clear{};gs_clear(GS_CLEAR_COLOR,&clear,0,0);gs_ortho(0,880,0,880,-100,100);
@@ -289,6 +323,12 @@ struct Filter {
                 }
                 if(!showingLaugh) {
                     sprite(background.image3.image2.image.texture);
+                    if(dynamicLabels && labelsTexture) {
+                        auto *labelEffect=obs_get_base_effect(OBS_EFFECT_DEFAULT);
+                        gs_effect_set_texture(gs_effect_get_param_by_name(labelEffect,"image"),labelsTexture);
+                        while(gs_effect_loop(labelEffect,"Draw"))gs_draw_sprite(labelsTexture,0,880,880);
+                    }
+
                     if(particlesEnabled){surface();particles(-1);}
                     sprite(foreground.image3.image2.image.texture);
                     if(particlesEnabled)particles(1);
@@ -375,12 +415,11 @@ MODULE_EXPORT bool obs_module_load(void) {
         MSG message; PeekMessageW(&message,nullptr,0,0,PM_NOREMOVE); hookThreadId=GetCurrentThreadId();
         keyboardHook=SetWindowsHookExW(WH_KEYBOARD_LL,keyboardProc,GetModuleHandleW(nullptr),0);
         if(!keyboardHook) blog(LOG_ERROR,"[milk-frog] keyboard hook unavailable: %lu",GetLastError());
-        unsigned initial=0;for(auto key:{'D','F','J','K'})if(GetAsyncKeyState(key)&0x8000)initial|=bitFor(key);
-        heldKeys=initial;
         reloadLaughHotkey(true);
+        heldKeys=frog::ObsHeldMask(gameplayKeys,playback.pressed);
         const UINT_PTR timer=SetTimer(nullptr,0,300,nullptr);
         while(GetMessageW(&message,nullptr,0,0)>0) {
-            if(message.message==WM_TIMER && message.wParam==timer)reloadLaughHotkey();
+            if(message.message==WM_TIMER && message.wParam==timer){reloadLaughHotkey();reloadGameplayBindings();}
             else {TranslateMessage(&message);DispatchMessageW(&message);}
         }
         if(timer)KillTimer(nullptr,timer);

@@ -37,7 +37,7 @@ $cmd=@"
 @echo off
 chcp 65001 >nul
 call "$vs\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 >nul
-cl /nologo /std:c++17 /O2 /MT /EHsc /utf-8 /LD /Ibuild\obs-sdk-source\libobs /Ibuild\obs-native obs-native\milk-frog-native.cpp /Fobuild\obs-native\milk-frog-native.obj /link build\obs-native\obs.lib user32.lib ole32.lib windowscodecs.lib /OUT:dist\input-overlay\milk-frog-native.dll /IMPLIB:build\obs-native\milk-frog-native.lib
+cl /nologo /std:c++17 /O2 /MT /EHsc /utf-8 /LD /Ibuild\obs-sdk-source\libobs /Ibuild\obs-native obs-native\milk-frog-native.cpp /Fobuild\obs-native\milk-frog-native.obj /link build\obs-native\obs.lib user32.lib ole32.lib windowscodecs.lib gdiplus.lib /OUT:dist\input-overlay\milk-frog-native.dll /IMPLIB:build\obs-native\milk-frog-native.lib
 if errorlevel 1 exit /b %errorlevel%
 cl /nologo /std:c++17 /O2 /MT /EHsc tools\VerifyNativeFountain.cpp /Fobuild\obs-native\VerifyNativeFountain.obj /Febuild\obs-native\VerifyNativeFountain.exe
 if errorlevel 1 exit /b %errorlevel%
