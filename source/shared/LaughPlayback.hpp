@@ -52,7 +52,7 @@ struct LaughPlayback {
     }
 };
 
-// Indexed lossless PNG frames. Decode one frame at a time with Windows WIC;
+// Indexed PNG/JPEG XR frames. Decode one frame at a time with Windows WIC;
 // neither a browser nor an external player is required at runtime.
 class LaughFrames {
     struct Entry {uint64_t offset;uint32_t bytes;};

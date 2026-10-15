@@ -11,6 +11,8 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
+#include <compressapi.h>
 #include "payload_manifest.h"
 
 namespace {
@@ -42,6 +44,16 @@ bool extract(HINSTANCE module,const PayloadFile& item,const std::filesystem::pat
     auto destination=folder/item.name;
     // Editable key configuration remains editable between ordinary launches.
     if(item.editable && std::filesystem::is_regular_file(destination))return true;
+    std::vector<unsigned char> unpacked;
+    if(item.compression) {
+        DECOMPRESSOR_HANDLE decoder=nullptr;
+        if(!item.unpackedSize || !CreateDecompressor(item.compression,nullptr,&decoder))return false;
+        unpacked.resize(item.unpackedSize);SIZE_T produced=0;
+        const BOOL decoded=Decompress(decoder,bytes,length,unpacked.data(),unpacked.size(),&produced);
+        CloseDecompressor(decoder);
+        if(!decoded || produced!=item.unpackedSize){failureDetails+=L"\nDecompress";return false;}
+        bytes=unpacked.data();length=DWORD(produced);
+    }
     if(sameFile(destination,bytes,length))return true;
     auto temporary=destination;temporary+=L".tmp-"+std::to_wstring(GetCurrentProcessId());
     bool written=false;

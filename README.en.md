@@ -68,3 +68,7 @@ The bundled plugin targets 64-bit Windows and OBS 32.2.2. Keep the entire `obs-i
 
 Download the EXE from [Releases](https://github.com/Bassssor/Mania-Frog/releases/latest). For the complete project, use Code → Download ZIP or `git clone https://github.com/Bassssor/Mania-Frog.git`.
 See the [source instructions](source/README.en.md) to rebuild. No ZIP archive is produced.
+
+## Executable size
+
+The standalone EXE is 23,300,096 bytes (23.3 MB), about 63% smaller than the original 62,394,368-byte build. Seven unused runtime libraries were removed; code, dependencies and audio use lossless resource compression. Embedded laughter frames use JPEG XR colour quality 0.95 with pixel-exact alpha, retaining 720?720, 24 fps, 216 frames and nine seconds. Idle/gameplay artwork is unchanged. OBS assets retain their original files. See `verification/executable-size/` for checks and visual comparisons.

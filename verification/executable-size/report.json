@@ -1,0 +1,204 @@
+{
+  "--smoke-test": {
+    "exit_code": 0,
+    "seconds": 6.825
+  },
+  "--verify-controls": {
+    "exit_code": 0,
+    "seconds": 3.114
+  },
+  "--verify-labels": {
+    "exit_code": 0,
+    "seconds": 3.857
+  },
+  "--verify-laugh": {
+    "exit_code": 0,
+    "seconds": 2.985
+  },
+  "--verify-laugh-hotkey": {
+    "exit_code": 0,
+    "seconds": 2.754
+  },
+  "normal_artwork_identical_to_original": true,
+  "user_preferences_unchanged": true,
+  "original_bytes": 62394368,
+  "optimized_bytes": 23300096,
+  "reduction_percent": 62.66,
+  "optimized_sha256": "203dd058d404e327085c441bdd23f74a9c42af62a40c74862ebafa7b850a5c2a",
+  "source_video_resolution": [
+    720,
+    720
+  ],
+  "source_video_fps": 24,
+  "source_video_frames": 216,
+  "colour_quality": 0.95,
+  "all_216_frames_alpha_max_error": 0,
+  "visible_colour_PSNR_dB": 49.336,
+  "removed_unused_DLL_count": 7,
+  "extracted_runtime_resources_byte_exact": 22,
+  "x86_decoder_validation": "216 frames; decode p95=19.9203ms, max=42.131ms\nPASS: physical F5/restart, repeat suppression, gameplay cancellation, rebound keys, completion and transparency.",
+  "display_quality_samples": [
+    {
+      "frame": 0,
+      "size": 220,
+      "background": "black",
+      "MAE": 0.1206,
+      "PSNR": 57.244,
+      "p99_error": 1,
+      "maximum_error": 2
+    },
+    {
+      "frame": 0,
+      "size": 220,
+      "background": "white",
+      "MAE": 0.1209,
+      "PSNR": 57.23,
+      "p99_error": 1,
+      "maximum_error": 2
+    },
+    {
+      "frame": 0,
+      "size": 380,
+      "background": "black",
+      "MAE": 0.1673,
+      "PSNR": 55.388,
+      "p99_error": 1,
+      "maximum_error": 4
+    },
+    {
+      "frame": 0,
+      "size": 380,
+      "background": "white",
+      "MAE": 0.1677,
+      "PSNR": 55.38,
+      "p99_error": 1,
+      "maximum_error": 4
+    },
+    {
+      "frame": 0,
+      "size": 800,
+      "background": "black",
+      "MAE": 0.2214,
+      "PSNR": 53.317,
+      "p99_error": 2,
+      "maximum_error": 8
+    },
+    {
+      "frame": 0,
+      "size": 800,
+      "background": "white",
+      "MAE": 0.2216,
+      "PSNR": 53.315,
+      "p99_error": 2,
+      "maximum_error": 8
+    },
+    {
+      "frame": 108,
+      "size": 220,
+      "background": "black",
+      "MAE": 0.2038,
+      "PSNR": 54.908,
+      "p99_error": 1,
+      "maximum_error": 2
+    },
+    {
+      "frame": 108,
+      "size": 220,
+      "background": "white",
+      "MAE": 0.2048,
+      "PSNR": 54.888,
+      "p99_error": 1,
+      "maximum_error": 2
+    },
+    {
+      "frame": 108,
+      "size": 380,
+      "background": "black",
+      "MAE": 0.2827,
+      "PSNR": 52.977,
+      "p99_error": 2,
+      "maximum_error": 4
+    },
+    {
+      "frame": 108,
+      "size": 380,
+      "background": "white",
+      "MAE": 0.2831,
+      "PSNR": 52.972,
+      "p99_error": 2,
+      "maximum_error": 4
+    },
+    {
+      "frame": 108,
+      "size": 800,
+      "background": "black",
+      "MAE": 0.3643,
+      "PSNR": 50.997,
+      "p99_error": 2,
+      "maximum_error": 7
+    },
+    {
+      "frame": 108,
+      "size": 800,
+      "background": "white",
+      "MAE": 0.3647,
+      "PSNR": 50.992,
+      "p99_error": 2,
+      "maximum_error": 7
+    },
+    {
+      "frame": 215,
+      "size": 220,
+      "background": "black",
+      "MAE": 0.1677,
+      "PSNR": 55.772,
+      "p99_error": 1,
+      "maximum_error": 2
+    },
+    {
+      "frame": 215,
+      "size": 220,
+      "background": "white",
+      "MAE": 0.1681,
+      "PSNR": 55.765,
+      "p99_error": 1,
+      "maximum_error": 2
+    },
+    {
+      "frame": 215,
+      "size": 380,
+      "background": "black",
+      "MAE": 0.2264,
+      "PSNR": 54.026,
+      "p99_error": 2,
+      "maximum_error": 5
+    },
+    {
+      "frame": 215,
+      "size": 380,
+      "background": "white",
+      "MAE": 0.2268,
+      "PSNR": 54.019,
+      "p99_error": 2,
+      "maximum_error": 5
+    },
+    {
+      "frame": 215,
+      "size": 800,
+      "background": "black",
+      "MAE": 0.2924,
+      "PSNR": 52.097,
+      "p99_error": 2,
+      "maximum_error": 7
+    },
+    {
+      "frame": 215,
+      "size": 800,
+      "background": "white",
+      "MAE": 0.2926,
+      "PSNR": 52.095,
+      "p99_error": 2,
+      "maximum_error": 7
+    }
+  ]
+}

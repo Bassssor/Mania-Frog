@@ -48,3 +48,7 @@ MilkFrog.exe --smoke-test
 `tools/BuildObsKeySetup.ps1` builds the standalone `../obs-input-overlay/MilkFrogKeySetup.exe`. `tools/ExportInputOverlay.py` exports unlabelled atlas layers and preserves existing OBS bindings. The native plugin watches `keybindings.json`; legends are rendered behind fingers before particle composition. `shared/KeyNames.hpp` keeps desktop and OBS abbreviations consistent.
 
 Verification: `MilkFrogKeySetup.exe --verify output-directory` checks 255 key names at four positions. `tools/VerifyObsKeySetup.py` exercises real UI capture, Ctrl+Shift+Q, save/reset/cancel, 16 remapped OBS poses, old-key removal, modifier distinction and video cancellation. Set `OBS_EXE` to your OBS executable before the live test.
+
+## Compact portable build
+
+`python tools/BuildPortableExe.py` uses JPEG XR colour quality 0.95 for the embedded laughter clip, with lossless alpha and unchanged dimensions/frame timing. It computes the actual DLL import closure and losslessly compresses PE files and WAV resources with the Windows Compression API. Original source frames and OBS assets remain unchanged. Pass `--image-quality 1.0` to retain the original fully lossless PNG frame pack. Visual and runtime checks: `../verification/executable-size/`.
