@@ -71,4 +71,4 @@ See the [source instructions](source/README.en.md) to rebuild. No ZIP archive is
 
 ## Executable size
 
-The standalone EXE is 23,300,096 bytes (23.3 MB), about 63% smaller than the original 62,394,368-byte build. Seven unused runtime libraries were removed; code, dependencies and audio use lossless resource compression. Embedded laughter frames use JPEG XR colour quality 0.95 with pixel-exact alpha, retaining 720?720, 24 fps, 216 frames and nine seconds. Idle/gameplay artwork is unchanged. OBS assets retain their original files. See `verification/executable-size/` for checks and visual comparisons.
+The standalone EXE is 13,862,912 bytes (13.9 MB), about 78% smaller than the original 62,394,368-byte build. Seven unused runtime libraries were removed; code, dependencies and audio use lossless resource compression. Embedded laughter frames use WebP colour quality 0.95 with pixel-exact alpha, retaining 720?720, 24 fps, 216 frames and nine seconds. Idle/gameplay artwork is unchanged. OBS assets retain their original files. See `verification/executable-size/` for checks and visual comparisons.

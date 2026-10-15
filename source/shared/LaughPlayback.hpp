@@ -67,7 +67,11 @@ public:
         file.open(path,std::ios::binary);if(!file)return false;
         std::array<char,8> magic{};std::array<uint32_t,4> header{};
         file.read(magic.data(),8);file.read(reinterpret_cast<char*>(header.data()),16);
-        if(magic!=std::array<char,8>{'M','F','L','A','U','G','H','1'} ||
+        // WIC sniffs the container per frame, so the indexed PNG pack and the
+        // WebP pack share this decode path; only the magic differs.
+        const bool knownMagic=magic==std::array<char,8>{'M','F','L','A','U','G','H','1'} ||
+                              magic==std::array<char,8>{'M','F','L','A','U','G','H','2'};
+        if(!knownMagic ||
            header[0]!=720 || header[1]!=720 || header[2]!=24 || header[3]!=216)return false;
         width=header[0];height=header[1];fps=header[2];entries.resize(header[3]);
         file.seekg(0,std::ios::end);const auto length=uint64_t(file.tellg());file.seekg(24);

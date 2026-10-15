@@ -15,7 +15,9 @@ if errorlevel 1 exit /b %errorlevel%
 cl /nologo /std:c++17 /O2 /MT /EHsc /utf-8 /DUNICODE /D_UNICODE obs-native\KeySetup.cpp build\obs-key-setup\key-setup.res /Fobuild\obs-key-setup\KeySetup.obj /Febuild\obs-key-setup\MilkFrogKeySetup.exe /link /SUBSYSTEM:WINDOWS user32.lib shell32.lib gdi32.lib gdiplus.lib ole32.lib
 exit /b %errorlevel%
 "@
-$script | Set-Content -LiteralPath (Join-Path $build 'build.cmd') -Encoding utf8NoBOM
+$cmdPath=Join-Path $build 'build.cmd'
+try{$script | Set-Content -LiteralPath $cmdPath -Encoding utf8NoBOM}
+catch{[System.IO.File]::WriteAllText($cmdPath,$script,[System.Text.UTF8Encoding]::new($false))}
 Push-Location -LiteralPath $root
 try{& $env:ComSpec /d /c 'build\obs-key-setup\build.cmd'}finally{Pop-Location}
 if($LASTEXITCODE -ne 0){throw 'OBS key setup build failed'}

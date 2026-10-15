@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import struct
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -65,7 +66,8 @@ def main():
     parser=argparse.ArgumentParser()
     default=ROOT.parent/'MilkFrog.exe' if ROOT.name=='source' else ROOT/'dist/MilkFrog.exe'
     parser.add_argument('--output', type=Path, default=default)
-    parser.add_argument('--image-quality',type=float,default=.95,help='JPEG XR colour quality; 1 keeps original lossless PNG frames. Alpha is always lossless.')
+    parser.add_argument('--frame-codec',choices=['webp','jxr'],default='webp',help='Container for the laughter frame pack.')
+    parser.add_argument('--image-quality',type=float,default=.95,help='Colour quality of the frame codec; 1 keeps the original lossless PNG frames. Alpha is always lossless.')
     args=parser.parse_args()
     if not .90<=args.image_quality<=1:parser.error('Image quality must be between 0.90 and 1.0')
     folder=ROOT/'dist/milk-frog-4k'
@@ -91,25 +93,21 @@ def main():
     optimization=None
     if args.image_quality<1:
         source_hash=hashlib.sha256(original_frame_pack.read_bytes()).hexdigest()
-        optimized_pack=build/('laugh-'+str(args.image_quality)+'.mfa')
+        optimized_pack=build/('laugh-'+args.frame_codec+'-'+str(args.image_quality)+'.mfa')
         metadata=optimized_pack.with_suffix('.json')
-        encoder=build/'OptimizeLaughFrames.exe'
-        command=f'''@echo off
-call "{installation}\\Common7\\Tools\\VsDevCmd.bat" -arch=x64 -host_arch=x64 >nul
-cl /nologo /O2 /MT /EHsc /std:c++17 /utf-8 tools\\OptimizeLaughFrames.cpp /Fobuild\\portable\\OptimizeLaughFrames.obj /Febuild\\portable\\OptimizeLaughFrames.exe /link ole32.lib windowscodecs.lib oleaut32.lib
-exit /b %errorlevel%
-'''
-        (build/'encode.cmd').write_text(command,encoding='utf-8')
-        subprocess.run([os.environ['ComSpec'],'/d','/c',str(build/'encode.cmd')],cwd=ROOT,check=True)
-        expected={'source_sha256':source_hash,'quality':args.image_quality,'encoder_sha256':hashlib.sha256((ROOT/'tools/OptimizeLaughFrames.cpp').read_bytes()).hexdigest()}
+        encoder_hash=hashlib.sha256((ROOT/'tools/PrepareLaughPlayback.py').read_bytes()).hexdigest()
+        expected={'source_sha256':source_hash,'codec':args.frame_codec,'quality':args.image_quality,'encoder_sha256':encoder_hash}
         cached=json.loads(metadata.read_text()) if metadata.exists() else {}
         if not optimized_pack.exists() or any(cached.get(k)!=v for k,v in expected.items()):
             temporary=optimized_pack.with_suffix('.tmp')
-            result=subprocess.run([str(encoder),str(original_frame_pack),str(temporary),str(args.image_quality)],text=True,capture_output=True,check=True)
-            optimization=json.loads(result.stdout.strip().splitlines()[-1])
+            subprocess.run([sys.executable,str(ROOT/'tools/PrepareLaughPlayback.py'),'encode-pack',
+                '--input',str(original_frame_pack),'--output',str(temporary),
+                '--codec',args.frame_codec,'--quality',str(args.image_quality),
+                '--report',str(metadata)],check=True)
+            optimization=json.loads(metadata.read_text())
             if optimization['max_alpha_error']!=0:raise RuntimeError('Alpha changed during optimization')
             temporary.replace(optimized_pack)
-            expected['verification']=optimization;metadata.write_text(json.dumps(expected,indent=2))
+            metadata.write_text(json.dumps({**expected,'verification':optimization},indent=2))
         else:optimization=cached['verification']
     resources=['#include <windows.h>','101 ICON "SFML/SFML/milk-frog.ico"']
     rows=[];details=[];digest=hashlib.sha256()
