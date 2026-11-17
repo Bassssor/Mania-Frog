@@ -72,8 +72,8 @@ The bundled plugin targets 64-bit Windows and OBS 32.2.2. Keep the entire `obs-i
 Download the EXE from [Releases](https://github.com/Bassssor/Mania-Frog/releases/latest). For the complete project, use Code → Download ZIP or `git clone https://github.com/Bassssor/Mania-Frog.git`.
 See the [source instructions](source/README.en.md) to rebuild. No ZIP archive is produced.
 
-## Local memory and storage build
+## v1.2.1 memory and storage improvements
 
-This local tree includes memory and storage improvements. The EXE is 14,923,264 bytes. Cropped hand/shadow textures, a compact runtime atlas and an exiting bootstrap process reduce resident memory. Measured idle working set including the launcher fell from about 201 MB to 97 MB on this machine. All 194 state/scale/label PNGs match the released version pixel-for-pixel. The clip uses WebP quality 0.95 with lossless alpha.
+v1.2.1 includes memory and storage improvements. The EXE is 14,923,264 bytes, 41.7% smaller than v1.2.0. Cropped hand/shadow textures, a compact runtime atlas and an exiting bootstrap process reduce resident memory. Measured idle working set including the launcher fell from about 201 MB to 97 MB on this machine. All 194 state/scale/label PNGs match v1.2.0 pixel-for-pixel. The clip uses WebP quality 0.95 with lossless alpha.
 
-The published GitHub release remains v1.2.0, the verified edge-fix build. See the [local optimization record](verification/memory-storage-v18/README.md) for measurements and validation.
+Download [v1.2.1](https://github.com/Bassssor/Mania-Frog/releases/tag/v1.2.1). See the [optimization record](verification/memory-storage-v18/README.md) for measurements and validation.

@@ -63,8 +63,8 @@ OBS 默认 DFJK，运行 `obs-input-overlay/MilkFrogKeySetup.exe` 可选择 4K /
 可在 [Releases](https://github.com/Bassssor/Mania-Frog/releases/latest) 直接下载 EXE，完整项目的获取方法见 [首页](README.md)。
 构建步骤见 [源码中文说明](source/README.zh.md)。不生成压缩包。
 
-## 本地低占用版
+## v1.2.1 内存与存储优化
 
-此工作树另行包含本地内存与存储优化，EXE 为 14,923,264 字节。运行图集压紧并释放重复纹理，普通启动后仅保留桌宠进程。本机待机工作集（含启动器）从约 201 MB 降至 97 MB；194 张状态、缩放及标签图逐像素一致。大笑动画使用 WebP 0.95 颜色质量与无损透明度。
+v1.2.1 包含内存与存储优化，EXE 为 14,923,264 字节，比 v1.2.0 缩小 41.7%。运行图集压紧并释放重复纹理，普通启动后仅保留桌宠进程。本机待机工作集（含启动器）从约 201 MB 降至 97 MB；194 张状态、缩放及标签图逐像素一致。大笑动画使用 WebP 0.95 颜色质量与无损透明度。
 
-当前 GitHub 发布仍为已验收的 v1.2.0 边缘修正版。本地优化的原始采样、验证和构建说明见 [优化记录](verification/memory-storage-v18/README.md)。
+下载 [v1.2.1 发布版](https://github.com/Bassssor/Mania-Frog/releases/tag/v1.2.1)。原始采样、验证和构建说明见 [优化记录](verification/memory-storage-v18/README.md)。

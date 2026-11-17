@@ -62,4 +62,4 @@ The v1.2.0 release asset preserves the verified JPEG XR build (25,602,048 bytes)
 
 Artwork preprocessing requires Pillow, NumPy, SciPy and aggdraw. Run `python tools/PrepareTargetHandArtwork.py` using the retained target-v11 references, inspect the results, then copy hands-4k/6k/8k.png from runtime-candidate to `assets/milk-frog/four-finger/`. `build.ps1` generates keyboards from `KeyboardSurface.hpp`. `PrepareExitArtwork.py` prepares the complete exit pose. `VerifyHandEdges.py` checks the lower forearm seam.
 
-本地低占用版：`build.ps1` 自动运行 `tools/PackRuntimeHands.py`；`python tools/VerifyRuntimeHands.py` 验证 32 个姿态的像素与位置。实测与最终安装包检查见 `../verification/memory-storage-v18/README.md`。
+v1.2.1 memory and storage build: `build.ps1` automatically runs `tools/PackRuntimeHands.py`; `python tools/VerifyRuntimeHands.py` checks the pixels and placement of all 32 poses. Measurements and final package checks are in `../verification/memory-storage-v18/README.md`.
