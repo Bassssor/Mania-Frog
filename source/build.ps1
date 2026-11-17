@@ -12,6 +12,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $sfmlRoot 'include\SFML\Graphics.hpp
 if (-not (Test-Path -LiteralPath (Join-Path $repository 'SFML\SFML\milk-frog.ico'))) {
     & (Join-Path $repository 'tools\PackAssets.ps1')
 }
+$laneAssets=Join-Path $repository 'assets\milk-frog\four-finger'
+Copy-Item -Path (Join-Path $laneAssets '*.png') -Destination (Join-Path $repository 'SFML\SFML') -Force
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 if (-not (Test-Path -LiteralPath $vswhere)) { throw 'Visual Studio C++ build tools are required.' }
 $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
@@ -23,6 +25,13 @@ $crt = Get-ChildItem -LiteralPath (Join-Path $installation 'VC\Redist\MSVC') -Fi
     Where-Object { $_.Parent.Name -eq 'x86' } | Sort-Object FullName -Descending | Select-Object -First 1
 if ($crt) { Copy-Item -Path (Join-Path $crt.FullName '*.dll') -Destination $output -Force }
 Copy-Item -LiteralPath (Join-Path $repository 'USAGE.zh.txt') -Destination $output -Force
+$keyboardExport = Start-Process -FilePath (Join-Path $output 'MilkFrog.exe') -ArgumentList '--export-keyboards','.' -WindowStyle Hidden -Wait -PassThru
+if($keyboardExport.ExitCode -ne 0) { throw 'Keyboard surface export failed.' }
+foreach($count in 4,6,8) {
+    $keyboard = Join-Path $output ('keyboard-'+$count+'k.png')
+    Copy-Item -LiteralPath $keyboard -Destination $laneAssets -Force
+    Copy-Item -LiteralPath $keyboard -Destination (Join-Path $repository 'SFML\SFML') -Force
+}
 $tableMask = Join-Path $repository 'build\tabletop-top-mask.png'
 $tableExport = Start-Process -FilePath (Join-Path $output 'MilkFrog.exe') -ArgumentList '--export-tabletop','tabletop.png',('"' + $tableMask + '"') -WindowStyle Hidden -Wait -PassThru
 if($tableExport.ExitCode -ne 0) { throw 'Native rounded tabletop export failed.' }
@@ -33,5 +42,6 @@ if(Test-Path -LiteralPath $fixture){
     $target=Join-Path $output 'legacy-seam-fixture'
     New-Item -ItemType Directory -Path $target -Force | Out-Null
     Copy-Item -Path (Join-Path $fixture 'base*.png') -Destination $target -Force
+    Copy-Item -Path (Join-Path $laneAssets '*.png') -Destination $target -Force
 }
 Write-Output ('Built: ' + (Join-Path $output 'MilkFrog.exe'))

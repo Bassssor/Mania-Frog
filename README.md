@@ -1,16 +1,16 @@
-# Mania-Frog （4K Only）
+# Mania-Frog （4K–8K）
 
-奶蛙音游桌宠与 OBS 原生输入叠加。基于 [Mania-Cat](https://github.com/malad1211/Mania-Cat) 修改，使用透明角色、四键键盘和桌面，支持敲键动作、黄色喷泉粒子及捧腹大笑。
+奶蛙音游桌宠与 OBS 原生输入叠加。基于 [Mania-Cat](https://github.com/malad1211/Mania-Cat) 修改，使用透明角色、4K–8K 键盘和桌面，支持敲键动作、黄色喷泉粒子及捧腹大笑。
 
 [中文说明](README.zh.md) · [English](README.en.md) · [下载 EXE](https://github.com/Bassssor/Mania-Frog/releases/latest/download/MilkFrog.exe) · [OBS 安装](obs-input-overlay/README.zh.md)
 
-![奶蛙桌宠](source/assets/milk-frog/desktop-preview.png)
+![奶蛙桌宠](verification/lanes/final-4k-idle.png)
 
 ## 直接运行
 
 1. 在 [Releases](https://github.com/Bassssor/Mania-Frog/releases/latest) 下载 `MilkFrog.exe`，双击运行，无需另放 DLL 或素材。
 2. 在 Windows 右下角系统托盘找到奶蛙图标，可能位于 **^** 隐藏图标区。
-3. 右键图标可放大、缩小、置顶、修改键位、设置“重开大笑键”或退出。左键拖动角色调整位置。
+3. 右键图标可切换 4K–8K、放大、缩小、置顶、修改键位、设置“重开大笑键”或退出。左键拖动角色调整位置。
 
 默认敲键为 **D / F / J / K**。修改桌宠键位后，键帽标签同时更新；长功能键名称使用 `SPC`、`ENT`、`LC`、`RC` 等缩写，并限制在键帽内部。
 
@@ -20,7 +20,7 @@
 
 OBS 使用真正的 **Input Overlay / 输入叠加** 源及本项目的原生动画滤镜，无需运行桌宠 EXE。关闭 OBS 预览后，角色仍进入直播或录制输出。笑声音频源关闭本地监听即可仅进入输出。
 
-下载完整项目，按照 [OBS 中文说明](obs-input-overlay/README.zh.md) 安装。提供的插件面向 **64 位 Windows、OBS 32.2.2**；OBS 默认 DFJK，可通过 `obs-input-overlay/MilkFrogKeySetup.exe` 快捷修改四键及“重开大笑键”，保存后自动更新素材和绑定，无需重启 OBS。OBS 四键设置独立于桌宠。“重开大笑键”设置会同步到 OBS。
+下载完整项目，按照 [OBS 中文说明](obs-input-overlay/README.zh.md) 安装。提供的插件面向 **64 位 Windows、OBS 32.2.2**；OBS 默认 DFJK，可通过 `obs-input-overlay/MilkFrogKeySetup.exe` 选择 4K–8K 并修改敲键及“重开大笑键”，保存后自动更新素材和绑定，无需重启 OBS。OBS 敲键设置独立于桌宠。“重开大笑键”设置会同步到 OBS。
 
 ## 项目内容
 
@@ -36,6 +36,8 @@ OBS 使用真正的 **Input Overlay / 输入叠加** 源及本项目的原生动
 
 构建方法见 [源码说明](source/README.zh.md)。上游致谢及组件许可证见 [NOTICE.md](NOTICE.md)。
 
-## 体积优化
+## 当前版本
 
-单文件 EXE 从 62.4 MB 降到 **13.9 MB**，减少约 78%。7 个无用运行库被剔除；大笑动画改用 WebP（颜色质量 0.95、alpha 无损）内嵌，分辨率 720×720、24 fps、216 帧 9 秒均未改变，待机与敲键素材不受影响。详见 [体积验证记录](verification/executable-size/report.json)。
+当前发布包含 4K–8K 模式、三套共用键盘、独立手指动作和手臂边缘修复。按下敲键时闭眼大笑；退出时显示完整的难过姿态，停留 0.6 秒后用 0.8 秒淡出。
+
+`MilkFrog.exe` 为 25,602,048 字节（25.6 MB），与已验收的本地“边缘修正版”一致。内嵌动画沿用 JPEG XR 0.95 颜色质量和无损透明度；源码同时保留 WebP 打包选项。后续内存与体积优化不属于本次发布。验证记录见 [边缘修复验收](verification/arm-edge-v17/README.md)。

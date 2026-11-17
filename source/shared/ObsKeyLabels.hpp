@@ -13,13 +13,9 @@ struct GdiSession {
     GdiSession(){Gdiplus::GdiplusStartupInput input;Gdiplus::GdiplusStartup(&token,&input,nullptr);}
     ~GdiSession(){if(token)Gdiplus::GdiplusShutdown(token);}
 };
-constexpr float ObsKeyX[4]={574,474,378,288},ObsKeyY[4]={542,525,509,494};
-inline bool InsideKeyLabel(float x,float y) {
-    for(unsigned i=0;i<4;++i) {
-        float dx=x-ObsKeyX[i],dy=y-ObsKeyY[i];
-        float v=(dy-.18f*dx)/1.1206f,u=dx+.67f*v;
-        if(std::abs(u)<=34 && std::abs(v)<=18)return true;
-    }
+inline bool InsideKeyLabel(float x,float y,unsigned count=4) {
+    for(unsigned i=0;i<count;++i)
+        if(InsideLaneLabel(x+120,y+1,i,count))return true;
     return false;
 }
 // Produce one transparent legend layer, independent of hands, torso and desk.
@@ -32,9 +28,9 @@ inline std::vector<unsigned char> RenderObsKeyLabels(const ObsBindings& keys) {
     output.SetPixelOffsetMode(PixelOffsetModeHalf);
     FontFamily family(L"Segoe UI");FontFamily fallback(L"Arial");
     Font font(family.GetLastStatus()==Ok?&family:&fallback,176,FontStyleBold,UnitPixel);
-    SolidBrush ink(Color(255,45,51,49));StringFormat format(StringFormat::GenericTypographic());
+    SolidBrush ink(Color(255,62,72,65));StringFormat format(StringFormat::GenericTypographic());
     format.SetFormatFlags(format.GetFormatFlags()|StringFormatFlagsNoClip);
-    for(unsigned slot=0;slot<4;++slot) {
+    for(unsigned slot=0;slot<keys.size();++slot) {
         Bitmap glyph(800,320,PixelFormat32bppARGB);Graphics painter(&glyph);
         painter.Clear(Color(0,0,0,0));painter.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
         auto name=KeyName(int(keys[slot]));painter.DrawString(name.c_str(),int(name.size()),&font,PointF(30,20),&format,&ink);
@@ -49,8 +45,10 @@ inline std::vector<unsigned char> RenderObsKeyLabels(const ObsBindings& keys) {
         glyph.UnlockBits(&glyphData);
         if(right<left)return {};
         const float width=float(right-left+1)/4,height=float(bottom-top+1)/4;
-        const float w=std::min(52.f,width),h=height>40?26:height*.65f;
-        auto state=output.Save();output.TranslateTransform(ObsKeyX[slot],ObsKeyY[slot]);output.RotateTransform(191);
+        const float w=std::min(24.f,width),h=std::min(22.f,height*.68f);
+        auto state=output.Save();const auto center=LaneLabelCenter(slot,unsigned(keys.size()));
+        Matrix projection(-plane::UX,-plane::UY,-plane::VX,-plane::VY,center.x-120,center.y-1);
+        output.SetTransform(&projection);
         output.DrawImage(&glyph,RectF(-w/2,-h/2,w,h),float(left),float(top),float(right-left+1),float(bottom-top+1),UnitPixel);
         output.Restore(state);
     }
@@ -60,7 +58,7 @@ inline std::vector<unsigned char> RenderObsKeyLabels(const ObsBindings& keys) {
     for(int y=0;y<880;++y)for(int x=0;x<880;++x) {
         const auto *src=static_cast<unsigned char*>(data.Scan0)+y*data.Stride+x*4;
         auto *dst=result.data()+(y*880+x)*4;
-        if(InsideKeyLabel(x+.5f,y+.5f)){dst[0]=src[2];dst[1]=src[1];dst[2]=src[0];dst[3]=src[3];}
+        if(InsideKeyLabel(x+.5f,y+.5f,unsigned(keys.size()))){dst[0]=src[2];dst[1]=src[1];dst[2]=src[0];dst[3]=src[3];}
     }
     layer.UnlockBits(&data);return result;
 }

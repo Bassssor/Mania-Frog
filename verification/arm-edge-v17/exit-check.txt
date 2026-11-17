@@ -1,0 +1,1 @@
+PASS: deferred close, repeated-close idempotence, input and laughter stopped, resize/drag/dialogs blocked, 600 ms expression hold, 800 ms monotonic fade, transparent final frame, window/tray cleanup.

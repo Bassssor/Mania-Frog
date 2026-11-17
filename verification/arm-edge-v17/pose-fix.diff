@@ -1,0 +1,25 @@
+--- before
++++ after
+@@ -10,7 +10,11 @@
+     a,b,c,d = [0 if mask&(1<<bit) else 36 for bit in range(4)]
+     if side==0:
+         start=(843,365)
+-        curves=[(933,385,997,474,999,555),(1005,638,938,684,851,729-d*.4),
++        curves=[(933,385,997,474,999,555),
++            # Split the original forearm curve at t=.8. The fixed segment
++            # and the wrist's first control point keep the join tangent intact.
++            (1003.8,621.4,961.88,664.12,900.376,701.592),
++            (885,710.96,868.4,720-d*.32,851,729-d*.4),
+             (847,749-d*.7,854,782-d,858,801-d),(863,821-d,855,830-d,840,829-d),
+             (823,829-d,817,813-d,812,790-max(d,a)),
+             (810,808-a,805,824-a,789,824-a),(771,825-a,766,811-a,763,778-max(a,b)),
+@@ -53,7 +57,8 @@
+ class FingerPoses:
+     def __init__(self, source, side, contacts):
+         self.source=source;self.side=side;self.contacts=contacts
+-        self.box=(640,635,890,855) if side==0 else (335,585,550,800)
++        # Include the fixed forearm/wrist join; no moving edge crosses the patch.
++        self.box=(640,635,915,855) if side==0 else (335,585,550,800)
+         rgba=np.array(source).astype(float)
+         core=rgba[:,:,3]>250
+         _,nearest=distance_transform_edt(~core,return_indices=True)

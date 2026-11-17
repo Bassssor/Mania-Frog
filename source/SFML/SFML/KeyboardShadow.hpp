@@ -22,21 +22,11 @@ inline std::vector<float> Blur(const std::vector<float>& mask,float sigma) {
 }
 inline sf::Image Build(const sf::Image& keyboard,const sf::Image& corner,unsigned canvasWidth,unsigned canvasHeight) {
     std::vector<float> footprint(Width*Height);
-    for(int x=320;x<800;++x) {
-        int bottom=-1;
-        // The chassis' real lower silhouette, including its repaired corner,
-        // anchors contact. Elevated keycap outlines never enlarge the footprint.
-        for(int y=520;y<669;++y)
-            if(std::max(keyboard.getPixel(x,y).a,corner.getPixel(x,y).a)>=32)bottom=y;
-        if(bottom<0)continue;
-        const float rear=std::max(.18f*x+454.08f,-.85f*x+859.5f);
-        for(int y=std::max(Top,static_cast<int>(std::floor(rear)));y<=bottom && y<Top+Height;++y) {
-            const float rearCoverage=std::clamp(y+.5f-rear,0.f,1.f);
-            float frontCoverage=1.f;
-            if(y==bottom)frontCoverage=std::max(keyboard.getPixel(x,y).a,corner.getPixel(x,y).a)/255.f;
-            footprint[(y-Top)*Width+x-Left]=rearCoverage*frontCoverage;
-        }
-    }
+    // Follow each block's actual silhouette, including the gap between hands.
+    const int bottom=std::min(Top+Height,int(keyboard.getSize().y));
+    const int right=std::min(Left+Width,int(keyboard.getSize().x));
+    for(int y=Top;y<bottom;++y)for(int x=Left;x<right;++x)
+        footprint[(y-Top)*Width+x-Left]=std::max(keyboard.getPixel(x,y).a,corner.getPixel(x,y).a)/255.f;
     const auto contact=Blur(footprint,1.2f),cast=Blur(footprint,3.2f);
     sf::Image result;result.create(canvasWidth,canvasHeight,sf::Color::Transparent);
     auto sample=[](const std::vector<float>& field,int x,int y) {

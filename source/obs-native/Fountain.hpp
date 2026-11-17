@@ -1,4 +1,5 @@
 #pragma once
+#include "../shared/LaneLayout.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -18,8 +19,8 @@ struct Particle {
 // It uses the exact fingertip anchors and rates of obs-overlay/particles.js.
 struct Fountain {
     std::vector<Particle> particles;
-    std::array<float, 4> charge{}, emission{}, strikeAge{{10,10,10,10}};
-    std::array<Point, 4> centers{{{710,568},{605,544},{499,523},{397,504}}};
+    std::array<float, frog::MaxLanes> charge{}, emission{}, strikeAge{{10,10,10,10,10,10,10,10}};
+    std::array<Point, frog::MaxLanes> centers{{{710,568},{605,544},{499,523},{397,504}}};
     unsigned previous = 0;
     uint32_t seed = 0x51a7d321;
     float time = 0;
@@ -28,11 +29,8 @@ struct Fountain {
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
         return (seed & 0xffffff) / 16777216.f;
     }
-    static Point anchor(unsigned mask, int key) {
-        if (key == 0) return (mask & 3) == 3 ? Point{696,529} : Point{705,533};
-        if (key == 1) return (mask & 3) == 3 ? Point{646,517} : Point{594,526};
-        if (key == 2) return (mask & 12) == 12 ? Point{484,497} : Point{498,510};
-        return (mask & 12) == 12 ? Point{434,491} : Point{413,481};
+    static Point anchor(unsigned, int key) {
+        const auto p=LaneCenter(key);return {p.x,p.y};
     }
     void spawn(int key, int count, Point anchor) {
         for (int n = 0; n < count && particles.size() < 2048; ++n) {
@@ -49,7 +47,7 @@ struct Fountain {
         float dt = std::clamp(seconds, 0.f, .05f);
         unsigned pressed = (held & ~previous) | pending;
         time += dt;
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < frog::LaneCount; ++i) {
             strikeAge[i] += dt;
             if ((held | pressed) & (1u << i)) centers[i] = anchor(held | pressed, i);
             if (pressed & (1u << i)) {

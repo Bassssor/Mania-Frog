@@ -11,11 +11,14 @@
 #include <vector>
 #include "ParticleEffects.hpp"
 #include "DeskSurface.hpp"
+#include "KeyboardSurface.hpp"
 #include "KeyboardShadow.hpp"
 #include "ArmShadow.hpp"
 #include "KeyboardRear.hpp"
+#include "ExitAnimation.hpp"
 #include "../../shared/LaughPlayback.hpp"
 #include "../../shared/KeyNames.hpp"
+#include "../../shared/LaneLayout.hpp"
 #include <mmsystem.h>
 
 namespace {
@@ -25,13 +28,16 @@ constexpr std::array<const char*, 9> Files = {
     "base.png", "base_1000.png", "base_1100.png", "base_0100.png",
     "base_0001.png", "base_0011.png", "base_0010.png", "base_left.png", "base_right.png"
 };
-constexpr std::array<int, 4> DefaultKeys = { 'D', 'F', 'J', 'K' };
-std::array<int, 4> keys = DefaultKeys;
+std::vector<int> DefaultKeys=frog::DefaultLaneKeys(4);
+std::array<std::vector<int>,5> profiles={frog::DefaultLaneKeys(4),frog::DefaultLaneKeys(5),frog::DefaultLaneKeys(6),frog::DefaultLaneKeys(7),frog::DefaultLaneKeys(8)};
+bool modeChanged=false;
+std::vector<int> keys = DefaultKeys;
 unsigned held = 0;
 unsigned pendingBursts = 0;
 frog::LaughPlayback laughPlayback;
 frog::LaughFrames laughFrames;
 bool laughReady=false;
+ExitAnimation exitAnimation;
 uint64_t audioRevision=0;
 void SyncLaughAudio() {
     if(!laughReady || audioRevision==laughPlayback.revision)return;
@@ -52,9 +58,9 @@ frog::KeyChord editedLaughHotkey;
 frog::ChordCapture laughCapture;
 bool laughCapturing=false;
 int captureSlot=-1;
-std::array<int,4> editedKeys=DefaultKeys;
+std::vector<int> editedKeys=DefaultKeys;
 std::array<bool,256> capturedDown{};
-std::array<HWND,4> keyButtons{};
+std::array<HWND,frog::MaxLanes> keyButtons{};
 HWND keyHint=nullptr;
 std::filesystem::path configOverride;
 
@@ -92,6 +98,7 @@ int RightFrame(unsigned mask) {
     return frames[(mask >> 2) & 3u];
 }
 void UpdateKey(DWORD code, bool down) {
+    if(exitAnimation.active)return;
     const bool bound=std::find(keys.begin(),keys.end(),int(code))!=keys.end();
     const auto revision=laughPlayback.revision;
     if(laughReady)laughPlayback.key(code,down,bound,held!=0,frog::NowNs());
@@ -108,6 +115,7 @@ void UpdateKey(DWORD code, bool down) {
 // The hook and renderer share one message-loop thread; no rendering inside
 // the hook and no detached thread modifying SFML textures.
 LRESULT CALLBACK KeyboardHook(int code, WPARAM event, LPARAM value) {
+    if(exitAnimation.active)return CallNextHookEx(nullptr,code,event,value);
     if (code == HC_ACTION) {
         const auto* key = reinterpret_cast<const KBDLLHOOKSTRUCT*>(value);
         const bool down=event==WM_KEYDOWN || event==WM_SYSKEYDOWN;
@@ -150,6 +158,7 @@ LRESULT CALLBACK KeyboardHook(int code, WPARAM event, LPARAM value) {
 }
 void SyncKeys() {
     held = 0;
+    if(exitAnimation.active)return;
     for (unsigned i = 0; i < keys.size(); ++i)
         if (GetAsyncKeyState(keys[i]) & 0x8000) held |= 1u << i;
     redraw = true;
@@ -166,12 +175,16 @@ std::filesystem::path ConfigPath() {
         return std::filesystem::path(local)/L"MilkFrog"/L"config.txt";
     return "config.txt";
 }
-bool SaveConfig(const std::array<int,4>& binding) {
+bool SaveConfig(const std::vector<int>& binding) {
+    profiles[frog::LaneCount-4]=binding;
     try {
         const auto path=ConfigPath();
         if(!path.parent_path().empty())std::filesystem::create_directories(path.parent_path());
         auto temporary=path;temporary+=L".tmp";
         {std::ofstream file(temporary,std::ios::trunc);
+         file<<"lanes="<<frog::LaneCount<<'\n';
+         for(unsigned mode=4;mode<=frog::MaxLanes;++mode)for(unsigned i=0;i<profiles[mode-4].size();++i)
+             file<<"profile"<<mode<<"_key"<<i+1<<'='<<profiles[mode-4][i]<<'\n';
          for(unsigned i=0;i<binding.size();++i)file<<"key"<<i+1<<'='<<binding[i]<<'\n';
          file<<"laugh_keys="<<laughPlayback.hotkey.text()<<'\n';
          file.flush();if(!file)return false;}
@@ -179,32 +192,34 @@ bool SaveConfig(const std::array<int,4>& binding) {
     } catch(...) {return false;}
 }
 void LoadConfig() {
-    auto candidate = DefaultKeys;
     const auto path=ConfigPath();
     std::ifstream config(std::filesystem::is_regular_file(path)?path:std::filesystem::path("config.txt"));
-    std::string line;
-    while (std::getline(config, line)) {
-        const auto equal = line.find('=');
-        if (equal == std::string::npos) continue;
-        const std::string name = Trim(line.substr(0, equal)), value = Trim(line.substr(equal + 1));
-        if (name.size() != 4 || name.substr(0, 3) != "key" || name[3] < '1' || name[3] > '4' || value.empty()) continue;
-        int key = -1;
-        if (value.size() == 1 && (value[0] < '0' || value[0] > '9')) {
-            const SHORT mapped = VkKeyScanA(value[0]);
-            if (mapped != -1) key = mapped & 255;
-        } else {
-            try {
-                size_t used = 0;
-                key = std::stoi(value, &used, value.rfind("0x", 0) == 0 || value.rfind("0X", 0) == 0 ? 16 : 10);
-                if (used != value.size()) key = -1;
-            } catch (...) { key = -1; }
-        }
-        if (key > 0 && key < 256) candidate[name[3] - '1'] = key;
+    std::vector<std::pair<std::string,std::string>> settings;std::string line;
+    while(std::getline(config,line)) {
+        const auto equal=line.find('=');if(equal==std::string::npos)continue;
+        settings.emplace_back(Trim(line.substr(0,equal)),Trim(line.substr(equal+1)));
     }
-    bool distinct = true;
-    for (unsigned i = 0; i < candidate.size(); ++i)
-        for (unsigned j = i + 1; j < candidate.size(); ++j) distinct &= candidate[i] != candidate[j];
-    keys = distinct ? candidate : DefaultKeys;
+    unsigned mode=4;
+    for(const auto& item:settings)if(item.first=="lanes")try{unsigned value=std::stoul(item.second);if(frog::ValidLaneCount(value))mode=value;}catch(...){}
+    frog::LaneCount=mode;DefaultKeys=frog::DefaultLaneKeys(mode);
+    for(unsigned count=4;count<=frog::MaxLanes;++count) {
+        auto candidate=frog::DefaultLaneKeys(count);
+        const std::string prefix="profile"+std::to_string(count)+"_key";
+        const bool profiled=std::any_of(settings.begin(),settings.end(),[&](const auto& item){return item.first.rfind(prefix,0)==0;});
+        for(const auto& item:settings) {
+            const std::string name=item.first,value=item.second;
+            const std::string keyPrefix=profiled?prefix:"key";
+            if((!profiled && count!=mode) || name.rfind(keyPrefix,0)!=0 || name.size()!=keyPrefix.size()+1 || value.empty())continue;
+            const int slot=name.back()-'1';if(slot<0 || slot>=int(count))continue;
+            int key=-1;
+            if(value.size()==1 && (value[0]<'0' || value[0]>'9')){const SHORT mapped=VkKeyScanA(value[0]);if(mapped!=-1)key=mapped&255;}
+            else try{size_t used=0;key=std::stoi(value,&used,value.rfind("0x",0)==0 || value.rfind("0X",0)==0?16:10);if(used!=value.size())key=-1;}catch(...){}
+            if(key>0 && key<256)candidate[slot]=key;
+        }
+        bool distinct=true;for(unsigned i=0;i<count;++i)for(unsigned j=i+1;j<count;++j)distinct&=candidate[i]!=candidate[j];
+        profiles[count-4]=distinct?candidate:frog::DefaultLaneKeys(count);
+    }
+    keys=profiles[mode-4];
     laughPlayback.setHotkey(frog::ReadLaughHotkey(std::filesystem::is_regular_file(path)?path:std::filesystem::path("config.txt")));
     laughPlayback.syncPressed();
     pendingBursts=0;
@@ -212,93 +227,77 @@ void LoadConfig() {
 }
 using frog::KeyName;
 
-const std::array<sf::Vector2f,4> KeyCenters={sf::Vector2f(694.f,543.f),sf::Vector2f(594.f,526.f),
-    sf::Vector2f(498.f,510.f),sf::Vector2f(408.f,495.f)};
+
 
 class Artwork {
     std::array<sf::Texture, 9> textures;
     sf::Sprite body, left, right;
     sf::Texture tableTexture, cornerTexture, keyboardTexture;
     sf::Texture keyboardRearTexture;
-    sf::Texture pressedBodyTexture;
+    sf::Texture pressedBodyTexture, exitPoseTexture;
     sf::Texture shadowTexture;
-    std::array<sf::Texture,16> armShadows;
-    bool hasTable=false,hasCorner=false,hasPressedFace=false;
+    std::array<sf::Texture,32> extendedShadows;
+    std::array<sf::Texture,32> extendedHands;
+    std::array<sf::Texture,3> extendedKeyboard,extendedKeyboardShadow;
+    bool hasTable=false,hasCorner=false,hasPressedFace=false,hasExitPose=false;
+    bool legacyHandFixture=false;
     sf::Font font;
     sf::RenderTexture composite;
-    std::array<sf::Texture,2> reachTextures;
-    std::array<sf::VertexArray,2> reaches;
-    bool BuildReach(unsigned slot,unsigned frame,sf::Vector2f shift) {
-        const auto image=textures[frame].copyToImage();
-        const auto* source=image.getPixelsPtr();
-        std::vector<sf::Uint8> premultiplied(source,source+Width*SpriteHeight*4);
-        for(unsigned pixel=0;pixel<Width*SpriteHeight;++pixel) {
-            const unsigned offset=pixel*4,alpha=premultiplied[offset+3];
-            for(unsigned channel=0;channel<3;++channel)
-                premultiplied[offset+channel]=static_cast<sf::Uint8>((premultiplied[offset+channel]*alpha+127)/255);
-        }
-        if(!reachTextures[slot].create(Width,SpriteHeight))return false;
-        reachTextures[slot].update(premultiplied.data());reachTextures[slot].setSmooth(true);
-        reaches[slot].clear();
-        reaches[slot].setPrimitiveType(sf::Triangles);
-        auto vertex=[shift](float x,float y) {
-            const float t=std::clamp((y-326.f)/135.f,0.f,1.f);
-            const float weight=t*t*(3.f-2.f*t);
-            return sf::Vertex(sf::Vector2f(x,y)+shift*weight,sf::Color::White,sf::Vector2f(x,y));
-        };
-        for(unsigned row=0;row<SpriteHeight;row+=4) {
-            const float first=static_cast<float>(row),last=static_cast<float>(std::min(row+4,SpriteHeight));
-            const std::array<sf::Vertex,4> quad={{vertex(0,first),vertex(static_cast<float>(Width),first),
-                vertex(static_cast<float>(Width),last),vertex(0,last)}};
-            for(unsigned corner : {0u,1u,2u,0u,2u,3u})reaches[slot].append(quad[corner]);
-        }
-        return true;
-    }
     void DrawHands(sf::RenderTarget& target,unsigned mask) {
-        const sf::BlendMode blend(sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,
-            sf::BlendMode::Add,sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add);
-        if(LeftFrame(mask)==3)target.draw(reaches[0],sf::RenderStates(blend,sf::Transform::Identity,&reachTextures[0],nullptr));
-        else target.draw(left);
-        if(RightFrame(mask)==6)target.draw(reaches[1],sf::RenderStates(blend,sf::Transform::Identity,&reachTextures[1],nullptr));
-        else target.draw(right);
+        if(legacyHandFixture){target.draw(left);target.draw(right);return;}
+        target.draw(sf::Sprite(extendedHands[frog::LeftPose(mask)]));
+        target.draw(sf::Sprite(extendedHands[16+frog::RightPose(mask)]));
     }
     void DrawArmShadow(sf::RenderTarget& target,unsigned mask,bool isolated=false) {
-        sf::Sprite shadow(armShadows[mask]);
-        shadow.setPosition(static_cast<float>(ArmShadow::Left),static_cast<float>(ArmShadow::Top));
-        // Tint existing receiver RGB only: no new alpha at body cut edges.
-        const sf::BlendMode multiply(sf::BlendMode::DstColor,sf::BlendMode::OneMinusSrcAlpha,
-            sf::BlendMode::Add,sf::BlendMode::Zero,sf::BlendMode::One,sf::BlendMode::Add);
-        const sf::BlendMode premultiplied(sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,
-            sf::BlendMode::Add,sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add);
-        target.draw(shadow,sf::RenderStates(isolated?premultiplied:multiply));
+        const sf::BlendMode multiply(sf::BlendMode::DstColor,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add,sf::BlendMode::Zero,sf::BlendMode::One,sf::BlendMode::Add);
+        const sf::BlendMode premultiplied(sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add,sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add);
+        for(unsigned index:{frog::LeftPose(mask),16+frog::RightPose(mask)}) {
+            sf::Sprite shadow(extendedShadows[index]);shadow.setPosition(float(ArmShadow::Left),float(ArmShadow::Top));
+            target.draw(shadow,sf::RenderStates(isolated?premultiplied:multiply));
+        }
     }
     bool BuildArmShadows(const sf::Image& keyboard) {
         sf::RenderTexture pose;
         if(!pose.create(Width,SpriteHeight))return false;
         const auto receiver=textures[0].copyToImage();
-        for(unsigned mask=0;mask<armShadows.size();++mask) {
-            DrawForeground(pose,mask);pose.display();
-            if(!armShadows[mask].loadFromImage(ArmShadow::Build(pose.getTexture().copyToImage(),receiver,keyboard)))return false;
-            armShadows[mask].setSmooth(true);
+        for(unsigned index=0;index<extendedHands.size();++index) {
+            pose.clear(sf::Color::Transparent);pose.draw(sf::Sprite(extendedHands[index]));pose.display();
+            if(!extendedShadows[index].loadFromImage(ArmShadow::Build(pose.getTexture().copyToImage(),receiver,keyboard)))return false;
+            extendedShadows[index].setSmooth(true);
         }
         return true;
     }
 public:
     ParticleEffects effects;
+    void DrawObsPart(sf::RenderTarget& target,const std::string& part,unsigned index) {
+        target.clear(sf::Color::Transparent);
+        if(part=="body")target.draw(sf::Sprite(index && hasPressedFace?pressedBodyTexture:textures[0]));
+        if(part=="desk") {
+            if(hasTable)target.draw(sf::Sprite(tableTexture));
+            target.draw(sf::Sprite(extendedKeyboardShadow[index]));
+            target.draw(sf::Sprite(extendedKeyboard[index]));
+        }
+        if(part=="hand")target.draw(sf::Sprite(extendedHands[index]));
+        if(part=="shadow") {
+            sf::Sprite shadow(extendedShadows[index]);shadow.setPosition(float(ArmShadow::Left),float(ArmShadow::Top));
+            const sf::BlendMode premultiplied(sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add,sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add);
+            target.draw(shadow,sf::RenderStates(premultiplied));
+        }
+    }
+
     void DrawArmShadowOnly(sf::RenderTarget& target,unsigned mask) {
         target.clear(sf::Color::Transparent);DrawArmShadow(target,mask,true);
     }
     bool SaveKeyboard(sf::RenderTarget& target) {
         target.clear(sf::Color::Transparent);
-        if(hasTable)target.draw(sf::Sprite(keyboardRearTexture));
-        if(hasCorner)target.draw(sf::Sprite(cornerTexture));
         if(!hasTable)return false;
-        target.draw(sf::Sprite(keyboardTexture));return true;
+        target.draw(sf::Sprite(extendedKeyboard[frog::KeyboardIndex()]));return true;
     }
     bool SaveShadow(const std::filesystem::path& path) {
-        return hasTable && shadowTexture.copyToImage().saveToFile(path.string());
+        return hasTable && extendedKeyboardShadow[frog::KeyboardIndex()].copyToImage().saveToFile(path.string());
     }
-    bool Load(const std::filesystem::path& assetDirectory = {}) {
+    bool Load(const std::filesystem::path& assetDirectory = {},bool originalFixtureHands=false) {
+        legacyHandFixture=originalFixtureHands;
         for (unsigned i = 0; i < textures.size(); ++i) {
             if (!textures[i].loadFromFile((assetDirectory / Files[i]).string()) || textures[i].getSize() != sf::Vector2u(Width, SpriteHeight)) {
                 const auto message = L"角色素材缺失或尺寸错误：\n" + std::filesystem::path(Files[i]).wstring();
@@ -307,12 +306,28 @@ public:
             }
             textures[i].setSmooth(true);
         }
+        sf::Image four,eight;
+        if(!four.loadFromFile((assetDirectory/"hands-4k.png").string()) || !eight.loadFromFile((assetDirectory/"hands-8k.png").string()))return false;
+        constexpr unsigned mapping[]={7,1,3,2,8,6,4,5};
+        if(!legacyHandFixture)for(unsigned i=0;i<8;++i)if(!textures[mapping[i]].loadFromImage(four,sf::IntRect(i%4*Width,i/4*SpriteHeight,Width,SpriteHeight)))return false;
+        for(unsigned i=0;i<32;++i){if(!extendedHands[i].loadFromImage(eight,sf::IntRect(i%4*Width,i/4*SpriteHeight,Width,SpriteHeight)))return false;extendedHands[i].setSmooth(true);}
+        for(unsigned i=0;i<3;++i) {
+            if(!extendedKeyboard[i].loadFromFile((assetDirectory/("keyboard-"+std::to_string(i*2+4)+"k.png")).string()))return false;
+            extendedKeyboard[i].setSmooth(true);
+            sf::Image empty;empty.create(Width,SpriteHeight,sf::Color::Transparent);
+            if(!extendedKeyboardShadow[i].loadFromImage(KeyboardShadow::Build(extendedKeyboard[i].copyToImage(),empty,Width,Height)))return false;
+        }
         body.setTexture(textures[0]);
         const auto pressedPath=assetDirectory / "body-pressed.png";
         hasPressedFace=std::filesystem::exists(pressedPath);
         if(hasPressedFace && (!pressedBodyTexture.loadFromFile(pressedPath.string()) ||
             pressedBodyTexture.getSize()!=sf::Vector2u(Width,SpriteHeight)))return false;
         pressedBodyTexture.setSmooth(true);
+        const auto exitPath=assetDirectory / "exit-pose.png";
+        hasExitPose=std::filesystem::exists(exitPath);
+        if(hasExitPose && (!exitPoseTexture.loadFromFile(exitPath.string()) ||
+            exitPoseTexture.getSize()!=sf::Vector2u(Width,Height)))return false;
+        exitPoseTexture.setSmooth(true);
         const auto tablePath=assetDirectory / "tabletop.png";
         const auto cornerPath=assetDirectory / "keyboard-corner.png";
         hasTable=std::filesystem::exists(tablePath);
@@ -366,9 +381,6 @@ public:
             if(!shadowTexture.loadFromImage(KeyboardShadow::Build(keyboard,corner,Width,Height)))return false;
             shadowTexture.setSmooth(true);
         }
-        // Fixed shoulder, progressively displaced forearm, and a rigid hand
-        // at the keycap. Premultiplied sampling prevents a dark warped edge.
-        if(!BuildReach(0,3,{-57.f,11.f}) || !BuildReach(1,6,{29.f,13.f}))return false;
         sf::Image shadowExclusion;shadowExclusion.create(Width,SpriteHeight,sf::Color::Transparent);
         if(hasTable) {
             shadowExclusion=keyboardTexture.copyToImage();
@@ -388,40 +400,45 @@ public:
         return effects.Load() && (font.loadFromFile((directory / "segoeuib.ttf").string()) ||
             font.loadFromFile((directory / "arialbd.ttf").string()));
     }
-    sf::Text KeyLabel(int key,unsigned slot) const {
+    void DrawKeyLabel(sf::RenderTarget& target,int key,unsigned slot) const {
         sf::Text label(sf::String(KeyName(key)),font,44);
-        label.setFillColor(sf::Color(45,51,49));
+        label.setFillColor(sf::Color(62,72,65));
         const auto bounds=label.getLocalBounds();
         label.setOrigin(bounds.left+bounds.width/2.f,bounds.top+bounds.height/2.f);
-        label.setPosition(KeyCenters[slot]);label.setRotation(191.f);
-        // Fit both dimensions inside the inset of the existing keycap plane.
-        // Default D/F/J/K keep their original size and registration.
-        label.setScale(bounds.width>52.f?52.f/bounds.width:1.f,
-            bounds.height>40.f?26.f/bounds.height:0.65f);
-        return label;
+        const auto center=frog::LaneLabelCenter(slot);
+        const float labelWidth=24.f;
+        label.setScale(bounds.width>labelWidth?labelWidth/bounds.width:1.f,
+            std::min(.68f,22.f/bounds.height));
+        // Printed text faces the character and shares both tabletop axes.
+        const sf::Transform plane(-frog::plane::UX,-frog::plane::VX,center.x,
+            -frog::plane::UY,-frog::plane::VY,center.y,0,0,1);
+        target.draw(label,sf::RenderStates(plane));
     }
     void DrawLayers(sf::RenderTarget& target, unsigned mask, bool includeHands = true, bool includeEffects = true, bool includeTable = true, bool drawHandLayer = true) {
+        target.clear(sf::Color::Transparent);
+        if(exitAnimation.active && hasExitPose) {
+            target.draw(sf::Sprite(exitPoseTexture));
+            return;
+        }
         // Expression follows the held-key mask, never the lingering sparks.
         // Body-only exports keep the original face for geometry regressions.
+        if(exitAnimation.active){mask=0;includeEffects=false;}
         body.setTexture(hasPressedFace && includeHands && mask!=0 ? pressedBodyTexture : textures[0]);
         left.setTexture(textures[LeftFrame(mask)]);
         right.setTexture(textures[RightFrame(mask)]);
-        target.clear(sf::Color::Transparent);
         if(includeTable && hasTable) {
             target.draw(body);
             if(includeHands)DrawArmShadow(target,mask);
             target.draw(sf::Sprite(tableTexture));
-            target.draw(sf::Sprite(shadowTexture));
-            target.draw(sf::Sprite(keyboardRearTexture));
+            target.draw(sf::Sprite(extendedKeyboardShadow[frog::KeyboardIndex()]));
         }
-        if(hasCorner)target.draw(sf::Sprite(cornerTexture));
-        if(includeTable && hasTable)target.draw(sf::Sprite(keyboardTexture));
+        if(includeTable && hasTable)target.draw(sf::Sprite(extendedKeyboard[frog::KeyboardIndex()]));
         else {target.draw(body);if(includeHands)DrawArmShadow(target,mask);}
         // Key legends face the character. D/F are screen-right and J/K
         // screen-left. Positions are the visible top-surface centers, before
         // hand occlusion; legends belong to the key, not on top of a finger.
         for (unsigned i = 0; drawKeyLabels && i < keys.size(); ++i) {
-            target.draw(KeyLabel(keys[i],i));
+            DrawKeyLabel(target,keys[i],i);
         }
         // Both keycaps and base are a single stationary image. Bloom lies
         // over the key legends and behind hands; front particles draw last.
@@ -472,14 +489,21 @@ class Presenter {
     int allocated = 0;
     sf::RenderTexture target;
     sf::Texture video;
+    sf::Uint8 opacity=255;
 public:
-    bool Export(const std::filesystem::path& path){return StraightImage(target.getTexture()).saveToFile(path.string());}
+    bool Export(const std::filesystem::path& path){
+        auto image=StraightImage(target.getTexture());
+        if(opacity!=255)for(unsigned y=0;y<image.getSize().y;++y)for(unsigned x=0;x<image.getSize().x;++x){
+            auto p=image.getPixel(x,y);p.a=static_cast<sf::Uint8>((unsigned(p.a)*opacity+127)/255);image.setPixel(x,y,p);
+        }
+        return image.saveToFile(path.string());
+    }
     ~Presenter() {
         if (previous) SelectObject(dc, previous);
         if (bitmap) DeleteObject(bitmap);
         if (dc) DeleteDC(dc);
     }
-    bool Paint(HWND window, Artwork& artwork) {
+    bool Paint(HWND window, Artwork& artwork,uint64_t now=frog::NowNs()) {
         if (allocated != size) {
             if (previous) { SelectObject(dc, previous); previous = nullptr; }
             if (bitmap) { DeleteObject(bitmap); bitmap = nullptr; }
@@ -495,7 +519,7 @@ public:
             allocated = size;
             target.setView(sf::View(sf::FloatRect(ViewX, 1.f, static_cast<float>(SceneSize), static_cast<float>(SceneSize))));
         }
-        int frame=laughReady?laughPlayback.frame(frog::NowNs()):-1;
+        int frame=laughReady && !exitAnimation.active?laughPlayback.frame(now):-1;
         if(frame>=0 && laughFrames.decode(frame)) {
             if(video.getSize().x!=laughFrames.width && !video.create(laughFrames.width,laughFrames.height))return false;
             video.setSmooth(true);video.update(laughFrames.rgba.data());
@@ -518,7 +542,8 @@ public:
             bgra[i * 4 + 2] = rgba[i * 4]; bgra[i * 4 + 3] = rgba[i * 4 + 3];
         }
         POINT source{}; SIZE dimensions{ size, size };
-        BLENDFUNCTION blend{ AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
+        opacity=exitAnimation.Opacity(now);
+        BLENDFUNCTION blend{ AC_SRC_OVER, 0, opacity, AC_SRC_ALPHA };
         return UpdateLayeredWindow(window, nullptr, nullptr, &dimensions, dc, &source, 0, &blend, ULW_ALPHA) != FALSE;
     }
 };
@@ -593,9 +618,8 @@ void RemoveTray(HWND window) {
     trayAdded=false;
 }
 void RefreshKeyButtons() {
-    constexpr const wchar_t* positions[]={L"左手外侧",L"左手内侧",L"右手内侧",L"右手外侧"};
-    for(unsigned i=0;i<4;++i) {
-        const std::wstring text=std::wstring(positions[i])+L"："+KeyName(editedKeys[i]);
+    for(unsigned i=0;i<keys.size();++i) {
+        const std::wstring text=std::wstring(frog::LaneFinger(i))+L"："+KeyName(editedKeys[i]);
         SetWindowTextW(keyButtons[i],text.c_str());
     }
 }
@@ -609,31 +633,31 @@ LRESULT CALLBACK KeyDialogProc(HWND window,UINT message,WPARAM wparam,LPARAM lpa
             SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)),TRUE);
             return child;
         };
-        control(L"STATIC",L"点击要更换的键位，再按一下目标键。四个键位不能重复。",0,18,16,450,26,0);
-        for(unsigned i=0;i<4;++i)keyButtons[i]=control(L"BUTTON",L"",WS_TABSTOP,18+static_cast<int>(i%2)*230,
+        control(L"STATIC",L"点击要更换的键位，再按一下目标键。各轨道键位不能重复。",0,18,16,450,26,0);
+        for(unsigned i=0;i<keys.size();++i)keyButtons[i]=control(L"BUTTON",L"",WS_TABSTOP,18+static_cast<int>(i%2)*230,
             52+static_cast<int>(i/2)*46,218,36,201+i);
-        keyHint=control(L"STATIC",L"保存后立即更新动作与键帽字母；关闭重开仍会保留。",0,18,151,450,38,0);
-        control(L"BUTTON",L"恢复 D / F / J / K",WS_TABSTOP,18,198,168,34,210);
-        control(L"BUTTON",L"保存",WS_TABSTOP|BS_DEFPUSHBUTTON,274,198,90,34,IDOK);
-        control(L"BUTTON",L"取消",WS_TABSTOP,376,198,90,34,IDCANCEL);
+        keyHint=control(L"STATIC",L"保存后立即更新动作与键帽字母；关闭重开仍会保留。",0,18,243,450,38,0);
+        control(L"BUTTON",L"恢复当前模式默认键",WS_TABSTOP,18,290,168,34,210);
+        control(L"BUTTON",L"保存",WS_TABSTOP|BS_DEFPUSHBUTTON,274,290,90,34,IDOK);
+        control(L"BUTTON",L"取消",WS_TABSTOP,376,290,90,34,IDCANCEL);
         RefreshKeyButtons();return 0;
     }
     case CapturedKeyMessage:
-        if(wparam!=VK_ESCAPE && lparam>=0 && lparam<4)editedKeys[static_cast<unsigned>(lparam)]=static_cast<int>(wparam);
+        if(wparam!=VK_ESCAPE && lparam>=0 && lparam<static_cast<LPARAM>(keys.size()))editedKeys[static_cast<unsigned>(lparam)]=static_cast<int>(wparam);
         RefreshKeyButtons();
         SetWindowTextW(keyHint,wparam==VK_ESCAPE?L"已取消本次录入。":L"键位已录入。点击保存，立即更新动作与键帽字母。");
         return 0;
     case WM_COMMAND: {
         const unsigned command=LOWORD(wparam);
-        if(command>=201 && command<=204) {
+        if(command>=201 && command<201+keys.size()) {
             captureSlot=static_cast<int>(command-201);
             SetWindowTextW(keyHint,L"请按一下目标键（Esc 取消本次录入）…");return 0;
         }
         if(command==210) {captureSlot=-1;editedKeys=DefaultKeys;RefreshKeyButtons();return 0;}
         if(command==IDOK) {
             captureSlot=-1;
-            for(unsigned i=0;i<4;++i)for(unsigned j=i+1;j<4;++j)if(editedKeys[i]==editedKeys[j]) {
-                SetWindowTextW(keyHint,L"有重复键位，请为四个位置设置不同的键。");return 0;
+            for(unsigned i=0;i<editedKeys.size();++i)for(unsigned j=i+1;j<editedKeys.size();++j)if(editedKeys[i]==editedKeys[j]) {
+                SetWindowTextW(keyHint,L"有重复键位，请为各轨道设置不同的键。");return 0;
             }
             if(!SaveConfig(editedKeys)) {
                 SetWindowTextW(keyHint,L"配置保存失败，请检查用户数据目录是否可写。");return 0;
@@ -665,7 +689,7 @@ void EditKeys(HWND owner,bool show=true) {
     RegisterClassW(&type);
     POINT cursor{};GetCursorPos(&cursor);MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
     GetMonitorInfoW(MonitorFromPoint(cursor,MONITOR_DEFAULTTONEAREST),&monitor);
-    RECT bounds{0,0,484,252};AdjustWindowRectEx(&bounds,WS_CAPTION|WS_SYSMENU,FALSE,WS_EX_DLGMODALFRAME);
+    RECT bounds{0,0,484,344};AdjustWindowRectEx(&bounds,WS_CAPTION|WS_SYSMENU,FALSE,WS_EX_DLGMODALFRAME);
     const int width=bounds.right-bounds.left,height=bounds.bottom-bounds.top;
     keyDialog=CreateWindowExW(WS_EX_DLGMODALFRAME,type.lpszClassName,L"奶蛙桌宠 · 修改键位",
         WS_CAPTION|WS_SYSMENU,(monitor.rcWork.left+monitor.rcWork.right-width)/2,
@@ -758,12 +782,29 @@ void EditLaughKey(HWND owner,bool show=true) {
     if(laughDialog && show){ShowWindow(laughDialog,SW_SHOW);SetForegroundWindow(laughDialog);}
 }
 enum Command { Bigger = 101, Smaller, Top, Edit, Reload, Exit, EditLaugh };
+void BeginExit() {
+    if(exitAnimation.active)return;
+    exitAnimation.Begin(frog::NowNs());
+    if(keyDialog)DestroyWindow(keyDialog);
+    if(laughDialog)DestroyWindow(laughDialog);
+    laughPlayback.stop();SyncLaughAudio();
+    held=0;pendingBursts=0;redraw=true;
+}
+bool FinishExit(HWND window,uint64_t now) {
+    if(!exitAnimation.Finished(now))return false;
+    DestroyWindow(window);return true;
+}
 void Menu(HWND window) {
+    if(exitAnimation.active)return;
     HMENU menu = CreatePopupMenu();
     AppendMenuW(menu, MF_STRING, Bigger, L"放大");
     AppendMenuW(menu, MF_STRING, Smaller, L"缩小");
     AppendMenuW(menu, MF_STRING | (topmost ? MF_CHECKED : 0), Top, L"置顶");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    for(unsigned count=4;count<=frog::MaxLanes;++count) {
+        const auto label=std::to_wstring(count)+L"K";
+        AppendMenuW(menu,MF_STRING|(frog::LaneCount==count?MF_CHECKED:0),300+count,label.c_str());
+    }
     AppendMenuW(menu, MF_STRING, Edit, L"修改键位…");
     const std::wstring laughMenu=L"重开大笑键（"+LaughHotkeyName(laughPlayback.hotkey)+L"）…";
     AppendMenuW(menu, MF_STRING, EditLaugh, laughMenu.c_str());
@@ -779,12 +820,24 @@ void Menu(HWND window) {
         SetWindowPos(window, topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     } else if (command == Edit) EditKeys(window);
     else if (command == EditLaugh) EditLaughKey(window);
-    else if (command == Exit) DestroyWindow(window);
-    if(!keyDialog && !laughDialog)SyncKeys();
+    else if(command>=304 && command<=308) {
+        const auto previous=frog::LaneCount;
+        if(unsigned(command-300)!=previous) {
+            if(keyDialog)DestroyWindow(keyDialog);if(laughDialog)DestroyWindow(laughDialog);
+            const auto previousKeys=keys;
+            frog::LaneCount=unsigned(command-300);DefaultKeys=frog::DefaultLaneKeys(frog::LaneCount);keys=profiles[frog::LaneCount-4];
+            if(!SaveConfig(keys)){frog::LaneCount=previous;DefaultKeys=frog::DefaultLaneKeys(previous);keys=previousKeys;MessageBoxW(window,L"模式保存失败。",L"奶蛙桌宠",MB_ICONERROR);}
+            else {laughPlayback.stop();SyncLaughAudio();held=0;pendingBursts=0;modeChanged=true;redraw=true;}
+        }
+    }
+    else if (command == Exit) SendMessageW(window,WM_COMMAND,Exit,0);
+    if(!exitAnimation.active && !keyDialog && !laughDialog)SyncKeys();
     PostMessageW(window, WM_NULL, 0, 0);
 }
 LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
     if(taskbarCreated && message==taskbarCreated){trayAdded=false;AddTray(window);return 0;}
+    if(exitAnimation.active && (message==TrayMessage || message==WM_LBUTTONDOWN ||
+        message==WM_NCLBUTTONDOWN || message==WM_RBUTTONUP || message==WM_MOUSEWHEEL))return 0;
     switch (message) {
     case TrayMessage:
         if(LOWORD(lparam)==WM_CONTEXTMENU || LOWORD(lparam)==WM_RBUTTONUP)Menu(window);
@@ -796,7 +849,8 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lpa
     case WM_MOUSEWHEEL: Resize(window, GET_WHEEL_DELTA_WPARAM(wparam) > 0 ? 20 : -20); return 0;
     case WM_MOUSEACTIVATE: return MA_NOACTIVATE;
     case WM_SIZE: redraw = true; return 0;
-    case WM_CLOSE: DestroyWindow(window); return 0;
+    case WM_COMMAND:if(LOWORD(wparam)==Exit){BeginExit();return 0;}break;
+    case WM_CLOSE: BeginExit(); return 0;
     case WM_DESTROY:
         if(keyDialog)DestroyWindow(keyDialog);
         if(laughDialog)DestroyWindow(laughDialog);
@@ -805,6 +859,8 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lpa
     }
     return DefWindowProcW(window, message, wparam, lparam);
 }
+
+#include "ExitVerification.hpp"
 
 int VerifyLabels(Artwork& artwork,const std::filesystem::path& directory) {
     std::filesystem::create_directories(directory);
@@ -835,18 +891,14 @@ int VerifyLabels(Artwork& artwork,const std::filesystem::path& directory) {
         const auto name=KeyName(code);
         if(name.empty() || name.size()>3)return 36;
         target.clear(sf::Color::Transparent);
-        for(unsigned slot=0;slot<4;++slot)target.draw(artwork.KeyLabel(code,slot));
+        for(unsigned slot=0;slot<4;++slot)artwork.DrawKeyLabel(target,code,slot);
         target.display();const auto image=target.getTexture().copyToImage();
         const auto* pixels=image.getPixelsPtr();
         for(unsigned y=0;y<SceneSize;++y)for(unsigned x=0;x<SceneSize;++x) {
             if(!pixels[(y*SceneSize+x)*4+3])continue;
             bool inside=false;
-            for(const auto& center:KeyCenters) {
-                const float dx=float(x)+0.5f+ViewX-center.x,dy=float(y)+1.5f-center.y;
-                // An inset parallelogram within the original keycap's top.
-                const float v=(dy-0.18f*dx)/1.1206f,u=dx+0.67f*v;
-                if(std::abs(u)<=34.f && std::abs(v)<=18.f){inside=true;break;}
-            }
+            for(unsigned slot=0;slot<4;++slot)
+                inside|=frog::InsideLaneLabel(float(x)+.5f+ViewX,float(y)+1.5f,slot);
             if(!inside) {
                 std::ofstream(directory/"failure.txt")<<"key="<<code<<", pixel="<<x<<','<<y;
                 return 37;
@@ -884,7 +936,7 @@ int VerifyControls(HWND window,Artwork& artwork,const std::filesystem::path& dir
     if(!keyDialog || keys!=DefaultKeys)return 15; // Duplicate save must stay open.
     SendMessageW(keyDialog,WM_COMMAND,IDCANCEL,0);
     LoadConfig();if(keys!=DefaultKeys || keyDialog)return 16;
-    const std::array<int,4> alternate={'A','S','L',VK_OEM_1};
+    const std::vector<int> alternate={'A','S','L',VK_OEM_1};
     sf::RenderTexture target;
     if(!target.create(SceneSize,SceneSize))return 17;
     target.setView(sf::View(sf::FloatRect(ViewX,1.f,float(SceneSize),float(SceneSize))));
@@ -907,14 +959,13 @@ int VerifyControls(HWND window,Artwork& artwork,const std::filesystem::path& dir
     artwork.Draw(target,0,true,false);target.display();
     const auto after=StraightImage(target.getTexture());
     after.saveToFile((directory/"remapped-keys.png").string());
-    constexpr int centerX[]={574,474,378,288},centerY[]={542,525,509,494};
     std::array<unsigned,4> changed{};
     for(unsigned y=0;y<SceneSize;++y)for(unsigned x=0;x<SceneSize;++x) {
         const auto a=before.getPixel(x,y),b=after.getPixel(x,y);
         if(a.a!=b.a)return 23;
         if(a==b)continue;
         bool onKey=false;
-        for(unsigned i=0;i<4;++i)if(std::abs(int(x)-centerX[i])<=44 && std::abs(int(y)-centerY[i])<=30) {
+        for(unsigned i=0;i<4;++i)if(frog::InsideLaneLabel(x+.5f+ViewX,y+1.5f,i)) {
             ++changed[i];onKey=true;break;
         }
         if(!onKey)return 24;
@@ -1086,11 +1137,14 @@ int PreviewEffects(Artwork& artwork, const std::filesystem::path& directory) {
 }
 int VerifyScales(Artwork& artwork,const std::filesystem::path& directory) {
     std::filesystem::create_directories(directory);
-    std::array<std::vector<unsigned char>,16> solid;
+    std::vector<unsigned> masks;
+    if(frog::LaneCount==4)for(unsigned mask=0;mask<16;++mask)masks.push_back(mask);
+    else {masks={0,(1u<<frog::LaneCount)-1u};for(unsigned i=0;i<frog::LaneCount;++i)masks.push_back(1u<<i);}
+    std::vector<std::vector<unsigned char>> solid(1u<<frog::LaneCount);
     sf::RenderTexture native;
     if (!native.create(SceneSize,SceneSize)) return 2;
     native.setView(sf::View(sf::FloatRect(ViewX,1.f,static_cast<float>(SceneSize),static_cast<float>(SceneSize))));
-    for (unsigned mask=0;mask<16;++mask) {
+    for (unsigned mask:masks) {
         artwork.Draw(native,mask,true,false); native.display();
         const auto reference=native.getTexture().copyToImage();
         const auto* rgba=reference.getPixelsPtr();
@@ -1109,10 +1163,10 @@ int VerifyScales(Artwork& artwork,const std::filesystem::path& directory) {
     unsigned long long checked=0;
     unsigned legacyHoles=0;
     Artwork legacy;
-    const bool hasLegacy=std::filesystem::exists("legacy-seam-fixture/base.png");
+    const bool hasLegacy=frog::LaneCount==4 && std::filesystem::exists("legacy-seam-fixture/base.png");
     std::vector<unsigned char> legacySolid(SceneSize*SceneSize);
     if(hasLegacy) {
-        if(!legacy.Load("legacy-seam-fixture")) return 8;
+        if(!legacy.Load("legacy-seam-fixture",true)) return 8;
         legacy.Draw(native,0,true,false);native.display();
         const auto reference=native.getTexture().copyToImage();
         for(unsigned y=2;y<SceneSize-2;++y) for(unsigned x=2;x<SceneSize-2;++x) {
@@ -1126,7 +1180,7 @@ int VerifyScales(Artwork& artwork,const std::filesystem::path& directory) {
         sf::RenderTexture target;
         if (!target.create(dimension,dimension)) return 3;
         target.setView(sf::View(sf::FloatRect(ViewX,1.f,static_cast<float>(SceneSize),static_cast<float>(SceneSize))));
-        for (unsigned mask=0;mask<16;++mask) {
+        for (unsigned mask:masks) {
             artwork.Draw(target,mask,true,false); target.display();
             const auto image=target.getTexture().copyToImage();
             const auto* rgba=image.getPixelsPtr();
@@ -1162,7 +1216,7 @@ int VerifyScales(Artwork& artwork,const std::filesystem::path& directory) {
     // Proves the test detects the reported failure in the old drawing order.
     if (hasLegacy && legacyHoles==0) return 7;
     std::ofstream summary(directory/"scale-verification.txt");
-    summary << "PASS: 30 sizes (220..800, step 20), 16 states each; "
+    summary << "PASS: 30 sizes (220..800, step 20), " <<masks.size()<<" states each; "
         << checked << " interior alpha checks; zero seams; transparent corners.\n";
     if(hasLegacy) summary << "Old separate-layer scaling reproduces " << legacyHoles << " alpha holes at size 380.\n";
     return 0;
@@ -1181,7 +1235,7 @@ int VerifyVideo(HWND window,Artwork& artwork,const std::filesystem::path& direct
     const auto restarted=laughPlayback.started;UpdateKey(VK_F5,true);
     if(laughPlayback.started!=restarted)return 45;
     UpdateKey(VK_F5,false);
-    for(const auto bindings:{DefaultKeys,std::array<int,4>{'A','S',VK_LCONTROL,VK_SPACE}}) {
+    for(const auto bindings:{DefaultKeys,std::vector<int>{'A','S',VK_LCONTROL,VK_SPACE}}) {
         keys=bindings;
         for(int code:bindings) {
             UpdateKey(VK_F5,true);UpdateKey(VK_F5,false);
@@ -1247,7 +1301,7 @@ int VerifyLaughHotkey(HWND window,const std::filesystem::path& directory) {
     capture('Q',false);capture(VK_LCONTROL,false);capture(VK_RSHIFT,false);
     SendMessageW(laughDialog,WM_COMMAND,IDOK,0);LoadConfig();
     if(laughPlayback.hotkey.text()!="16+17+81")return 78;
-    const std::array<int,4> alternate={'A','S','J','K'};
+    const std::vector<int> alternate={'A','S','J','K'};
     if(!SaveConfig(alternate))return 79;
     LoadConfig();if(keys!=alternate || laughPlayback.hotkey.text()!="16+17+81")return 80;
     laughPlayback.setHotkey(frog::KeyChord());UpdateKey(VK_F5,true);
@@ -1260,12 +1314,22 @@ int VerifyLaughHotkey(HWND window,const std::filesystem::path& directory) {
     std::ofstream(directory/"report.txt")<<"PASS: actual settings dialog and keyboard-hook capture, Ctrl+Q and Ctrl+Shift+Q, right Ctrl, autorepeat suppression, restart, gameplay cancellation, persistence, cancel, Esc, restore F5, conflicting keys and gameplay-settings preservation.\n";
     configOverride.clear();LoadConfig();return 0;
 }
+#include "LaneVerification.hpp"
 } // namespace
 
 int main(int argc, char** argv) {
     std::array<wchar_t, 32768> executable{};
     if (!GetModuleFileNameW(nullptr, executable.data(), static_cast<DWORD>(executable.size()))) return 1;
     std::filesystem::current_path(std::filesystem::path(executable.data()).parent_path());
+    if(argc>=3 && std::string(argv[1])=="--export-keyboards") {
+        const auto directory=std::filesystem::absolute(argv[2]);std::filesystem::create_directories(directory);
+        for(unsigned count:{4u,6u,8u}) {
+            sf::RenderTexture image;
+            if(!KeyboardSurface::Render(image,Width,SpriteHeight,count))return 2;
+            if(!StraightImage(image.getTexture()).saveToFile((directory/("keyboard-"+std::to_string(count)+"k.png")).string()))return 3;
+        }
+        return 0;
+    }
     if(argc>=3 && std::string(argv[1])=="--export-tabletop") {
         sf::RenderTexture surface;
         if(!DeskSurface::Render(surface,Width,Height))return 2;
@@ -1282,14 +1346,30 @@ int main(int argc, char** argv) {
     // OBS exports use their established DFJK mapping independently of the
     // desktop user's saved bindings. Verification never rewrites that file.
     if(argc>=4 && std::string(argv[3])=="--default-keys"){keys=DefaultKeys;held=0;pendingBursts=0;}
+    for(int i=1;i+1<argc;++i)if(std::string(argv[i])=="--mode") {
+        unsigned count=0;try{count=std::stoul(argv[i+1]);}catch(...){return 2;}
+        if(!frog::ValidLaneCount(count))return 2;
+        frog::LaneCount=count;DefaultKeys=frog::DefaultLaneKeys(count);keys=profiles[count-4];held=0;pendingBursts=0;
+    }
     Artwork artwork;
     if (!artwork.Load()) return 1;
-    if(argc>=3 && std::string(argv[1])=="--export-obs-assets") {
-        keys=DefaultKeys;drawKeyLabels=false;
+    if(argc>=3 && std::string(argv[1])=="--verify-lanes")return VerifyLaneModes(artwork,argv[2]);
+    if(argc>=3 && std::string(argv[1])=="--export-obs-parts") {
         const auto directory=std::filesystem::absolute(argv[2]);std::filesystem::create_directories(directory);
         sf::RenderTexture target;if(!target.create(SceneSize,SceneSize))return 2;
         target.setView(sf::View(sf::FloatRect(ViewX,1.f,float(SceneSize),float(SceneSize))));
-        for(unsigned mask=0;mask<16;++mask) {
+        for(const std::string part:{"body","desk","hand","shadow"})for(unsigned i=0;i<(part=="body"?2u:part=="desk"?3u:32u);++i) {
+            artwork.DrawObsPart(target,part,i);target.display();
+            if(!StraightImage(target.getTexture()).saveToFile((directory/(part+"-"+std::to_string(i)+".png")).string()))return 3;
+        }
+        return 0;
+    }
+    if(argc>=3 && std::string(argv[1])=="--export-obs-assets") {
+        keys=frog::DefaultLaneKeys(frog::LaneCount);drawKeyLabels=false;
+        const auto directory=std::filesystem::absolute(argv[2]);std::filesystem::create_directories(directory);
+        sf::RenderTexture target;if(!target.create(SceneSize,SceneSize))return 2;
+        target.setView(sf::View(sf::FloatRect(ViewX,1.f,float(SceneSize),float(SceneSize))));
+        for(unsigned mask=0;mask<(1u<<frog::LaneCount);++mask) {
             artwork.Draw(target,mask,true,false,true,false);target.display();
             if(!StraightImage(target.getTexture()).saveToFile((directory/("background-"+std::to_string(mask)+".png")).string()))return 3;
             artwork.DrawForeground(target,mask);target.display();
@@ -1342,6 +1422,11 @@ int main(int argc, char** argv) {
         const int result=VerifyControls(window,artwork,std::filesystem::absolute(argv[2]));
         UnhookWindowsHookEx(hook);DestroyWindow(window);return result;
     }
+    if(argc>=3 && std::string(argv[1])=="--verify-exit") {
+        bool menu=false;for(int i=3;i<argc;++i)menu|=std::string(argv[i])=="--menu-exit";
+        const int result=VerifyExit(window,artwork,std::filesystem::absolute(argv[2]),menu);
+        UnhookWindowsHookEx(hook);if(IsWindow(window))DestroyWindow(window);return result;
+    }
     if(argc>=3 && std::string(argv[1])=="--verify-laugh") {
         const int result=VerifyVideo(window,artwork,std::filesystem::absolute(argv[2]));
         UnhookWindowsHookEx(hook);DestroyWindow(window);return result;
@@ -1372,27 +1457,31 @@ int main(int argc, char** argv) {
             }
         }
         if (!running) break;
+        if(FinishExit(window,frog::NowNs()))continue;
         const int videoFrame=laughReady?laughPlayback.frame(frog::NowNs()):-1;
         if(videoFrame!=displayedVideoFrame){displayedVideoFrame=videoFrame;redraw=true;}
         SyncLaughAudio();
         if (smoke) {
-            held = smokeMask++ & 15u; redraw = true;
+            held = smokeMask++ & ((1u<<frog::LaneCount)-1u); redraw = true;
             if (smokeMask == 17) Resize(window, 40);
             if (smokeMask == 33) Resize(window, -40);
         }
+        if(modeChanged){artwork.effects.Reset();modeChanged=false;}
         const float dt = frameClock.getElapsedTime().asSeconds();
         if (dt >= AnimationInterval || redraw) {
             frameClock.restart();
             const bool wasActive = artwork.effects.Active();
-            artwork.effects.Advance(wasActive?dt:0.f,held,pendingBursts); pendingBursts = 0;
-            redraw |= wasActive || artwork.effects.Active();
+            if(exitAnimation.active)artwork.effects.Reset();
+            else artwork.effects.Advance(wasActive?dt:0.f,held,pendingBursts);
+            pendingBursts = 0;
+            redraw |= exitAnimation.active || wasActive || artwork.effects.Active();
         }
         if (redraw) {
             if (!presenter.Paint(window, artwork)) { result = 2; break; }
             redraw = false;
         }
         if (smoke && clock.getElapsedTime().asSeconds() >= 1.f) DestroyWindow(window);
-        frameWaiter.Wait(artwork.effects.Active() || laughPlayback.playing || smoke,redraw,frameClock);
+        frameWaiter.Wait(exitAnimation.active || artwork.effects.Active() || laughPlayback.playing || smoke,redraw,frameClock);
     }
     UnhookWindowsHookEx(hook);
     if (IsWindow(window)) DestroyWindow(window);

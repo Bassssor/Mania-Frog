@@ -2,13 +2,13 @@
 
 [中文](README.zh.md) · [Project home](../README.md)
 
-A real `input-overlay` source plus the **“奶蛙 DFJK · 原生动作与粒子”** native filter. Global DFJK presses drive 16 arm combinations, the held-key laughing expression, and yellow particle fountains directly inside OBS. Streaming does not require the desktop executable, a browser source, or a background service.
+A real `input-overlay` source plus the **“奶蛙 DFJK · 原生动作与粒子”** native filter. 4K–8K gameplay inputs drive 16/32/64/128/256 hand combinations, the held-key laughing expression, and yellow particle fountains directly inside OBS. Streaming does not require the desktop executable, a browser source, or a background service.
 
 ## Quickly change OBS keys and the laughter shortcut
 
-Run **MilkFrogKeySetup.exe** from this directory; the desktop companion is unnecessary. Click a gameplay position and press its replacement key. Click **“重开大笑键”** to record F5, Ctrl+Q, Ctrl+Shift+Q, or another chord, release all keys, then choose **“保存并应用”** (Save and apply).
+Run **MilkFrogKeySetup.exe** from this directory; the desktop companion is unnecessary. Select 4K–8K, then click a gameplay position and press its replacement key. Click **“重开大笑键”** to record F5, Ctrl+Q, Ctrl+Shift+Q, or another chord, release all keys, then choose **“保存并应用”** (Save and apply).
 
-The tool updates `keybindings.json`, `key-labels.png`, and `milk-frog.png`. The native filter switches bindings and keycap legends automatically in approximately 0.3 seconds, without restarting OBS. Reset DFJK / reset F5 also requires Save. Closing discards unsaved edits.
+The tool updates `keybindings.json`, `key-labels.png`, and `milk-frog.png`. The native filter switches bindings and keycap legends automatically in approximately 0.3 seconds, without restarting OBS. Reset mode defaults / reset F5 also requires Save. Closing discards unsaved edits.
 
 Supports distinct left/right Ctrl, Shift, Alt, and Windows keys, Space, and other function keys. Labels use at most three characters (LC/RC, LS/RS, LW/RW, SPC, ENT, etc.) and stay within the keycaps. Gameplay keys must be distinct and cannot overlap the laughter chord. Laughter chords support up to eight keys; holding does not repeat, and gameplay immediately cancels video and audio.
 
@@ -31,6 +31,6 @@ Disable OBS preview for viewer-only visibility; the character remains in stream/
 - DFJK: forearm presses, a laughing expression while held, and particle fountains. Releasing all keys restores the idle smile; existing particles fade in about 0.40 seconds.
 - F5: play the nine-second transparent belly-laugh clip and replacement audio. Another press restarts; holding the trigger does not repeat. Any DFJK press stops the clip and audio immediately and restores the corresponding keypress pose. Completion returns to idle.
 - Save a new **“重开大笑键”** shortcut, such as Ctrl+Q, in the desktop tray. OBS picks it up without restarting or requiring the companion to remain open.
-- OBS gameplay mapping defaults to DFJK and can be changed with the included utility, independently of desktop gameplay preferences.
+- Defaults are DFJK / SDFJK / SDFJKL / ASDFJKL / ASDFJKL; for 4K / 5K / 6K / 7K / 8K. OBS bindings are independent of desktop preferences.
 
-Keep PNG/JSON files, both atlases, `laugh-frames.mfa`, and `laugh.wav` together. Atlas paths are relative to the JSON. See the [plugin source guide](../source/obs-native/README.en.md) for building and [LICENSE.txt](LICENSE.txt) for the plugin license.
+Keep PNG/JSON files, `body-parts.png`, `desk-parts.png`, `hand-parts.png`, `shadow-parts.png`, `laugh-frames.mfa`, and `laugh.wav` together. Atlas paths are relative to the JSON. See the [plugin source guide](../source/obs-native/README.en.md) for building and [LICENSE.txt](LICENSE.txt) for the plugin license.

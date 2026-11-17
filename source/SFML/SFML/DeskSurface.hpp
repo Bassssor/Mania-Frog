@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <vector>
+#include "../../shared/ScenePlane.hpp"
 
 // Dimensions and corner radii are in one table plane. Every corner uses the
 // same quarter circle before projection; the keyboard determines both axes.
@@ -12,7 +13,8 @@ constexpr float Width=650.f,Depth=250.f,Radius=30.f,CenterX=560.f,CenterY=564.f;
 constexpr float Thickness=14.f;
 struct Point {sf::Vector2f plane,normal;};
 inline sf::Vector2f Project(sf::Vector2f p,float height=0.f) {
-    return {CenterX+p.x-.75f*p.y,CenterY+.18f*p.x+.6375f*p.y+height};
+    const auto projected=frog::plane::Project(p.x,p.y);
+    return {CenterX+projected.x,CenterY+projected.y+height};
 }
 inline std::vector<Point> Outline(float inset=0.f) {
     const float w=Width/2.f-inset,d=Depth/2.f-inset,r=Radius-inset;

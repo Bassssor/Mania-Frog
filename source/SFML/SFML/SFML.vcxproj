@@ -34,10 +34,10 @@
       <SubSystem>Windows</SubSystem><EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup><ClCompile Include="Source.cpp" /><ClInclude Include="ParticleEffects.hpp" /><ClInclude Include="DeskSurface.hpp" /><ClInclude Include="KeyboardShadow.hpp" /><ClInclude Include="ArmShadow.hpp" /><ClInclude Include="KeyboardRear.hpp" /><ResourceCompile Include="SFML.rc" /><Image Include="milk-frog.ico" /></ItemGroup>
+  <ItemGroup><ClCompile Include="Source.cpp" /><ClInclude Include="ParticleEffects.hpp" /><ClInclude Include="DeskSurface.hpp" /><ClInclude Include="KeyboardSurface.hpp" /><ClInclude Include="ExitAnimation.hpp" /><ClInclude Include="ExitVerification.hpp" /><ClInclude Include="../../shared/ScenePlane.hpp" /><ClInclude Include="KeyboardShadow.hpp" /><ClInclude Include="ArmShadow.hpp" /><ClInclude Include="KeyboardRear.hpp" /><ResourceCompile Include="SFML.rc" /><Image Include="milk-frog.ico" /></ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="CopyAssets" AfterTargets="Build">
-    <ItemGroup><RuntimeAsset Include="$(ProjectDir)base*.png;$(ProjectDir)body-pressed.png;$(ProjectDir)tabletop.png;$(ProjectDir)keyboard-corner.png;$(ProjectDir)config.txt;$(SfmlRoot)bin\sfml-graphics-2.dll;$(SfmlRoot)bin\sfml-window-2.dll;$(SfmlRoot)bin\sfml-system-2.dll;$(SfmlRoot)license.md" /></ItemGroup>
+    <ItemGroup><RuntimeAsset Include="$(ProjectDir)base*.png;$(ProjectDir)hands-*.png;$(ProjectDir)keyboard-4k.png;$(ProjectDir)keyboard-6k.png;$(ProjectDir)keyboard-8k.png;$(ProjectDir)body-pressed.png;$(ProjectDir)exit-pose.png;$(ProjectDir)tabletop.png;$(ProjectDir)keyboard-corner.png;$(ProjectDir)config.txt;$(SfmlRoot)bin\sfml-graphics-2.dll;$(SfmlRoot)bin\sfml-window-2.dll;$(SfmlRoot)bin\sfml-system-2.dll;$(SfmlRoot)license.md" /></ItemGroup>
     <Copy SourceFiles="@(RuntimeAsset)" DestinationFolder="$(OutDir)" />
     <ItemGroup><LaughAsset Include="$(ProjectDir)..\..\assets\milk-frog\laugh\laugh-frames.mfa;$(ProjectDir)..\..\assets\milk-frog\laugh\laugh.wav" /></ItemGroup>
     <Copy SourceFiles="@(LaughAsset)" DestinationFolder="$(OutDir)" />

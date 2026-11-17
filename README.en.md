@@ -1,10 +1,10 @@
-# Mania-Frog （4K Only）
+# Mania-Frog (4K–8K)
 
 [中文](README.zh.md)
 
 Run **MilkFrog.exe** directly. Installation and adjacent DLL/image files are unnecessary.
 A frog icon appears in the Windows notification area, possibly inside the **^** hidden-icons menu.
-Right-click it to enlarge, shrink, toggle always-on-top, change key bindings, or exit.
+Right-click it to select 4K–8K, resize, toggle always-on-top, change key bindings, or exit.
 The character offers the same context menu. Drag it with the left mouse button to move it.
 The application menus currently use Chinese labels.
 
@@ -29,8 +29,11 @@ Keep `laugh-frames.mfa` and `laugh.wav` in `obs-input-overlay` along with the ex
 ## Change key bindings
 
 Choose “修改键位…” (Change keys), click a position, press the desired key, then click “保存” (Save).
-The four default positions are D/F/J/K: the character's left outer, left inner, right inner, and right outer key.
-Bindings must be distinct. “取消” discards changes; “恢复 D / F / J / K” restores the defaults.
+Select a lane mode first. Defaults: 4K DFJK, 5K SDFJK, 6K SDFJKL, 7K ASDFJKL, 8K ASDFJKL;. Each mode saves its own bindings.
+Each hand has four short rounded fingers, with thumbs hidden. The character's left hand is on screen-right.
+4K uses left middle/index and right index/middle. 5K adds left ring before them; 6K adds right ring after them.
+7K maps left pinky/ring/middle/index to lanes 1–4 and right index/middle/ring to lanes 5–7. 8K adds right pinky as lane 8.
+Bindings must be distinct. “取消” discards changes; “恢复当前模式默认键” restores the selected mode defaults.
 Saving updates both the input mapping and the keycap legends immediately.
 Preferences persist across restarts and EXE updates in `%LOCALAPPDATA%/MilkFrog/config.txt`.
 
@@ -56,7 +59,7 @@ Uncommon hardware keys use K followed by a two-digit hexadecimal key code.
 
 Follow the [OBS installation guide](obs-input-overlay/README.en.md) to add a real Input Overlay source, the native animation filter, and the laughter audio source. The desktop EXE is unnecessary for streaming. Disable OBS preview to hide the character locally while keeping it in stream/recording output. Set the audio source to Monitor Off for output-only laughter.
 
-The bundled plugin targets 64-bit Windows and OBS 32.2.2. Keep the entire `obs-input-overlay/` directory together. OBS defaults to DFJK. Run `obs-input-overlay/MilkFrogKeySetup.exe` to change its four gameplay keys and the laughter shortcut; saving updates legends and bindings without restarting OBS. Desktop gameplay preferences are independent; the laughter shortcut is shared.
+The bundled plugin targets 64-bit Windows and OBS 32.2.2. Keep the entire `obs-input-overlay/` directory together. OBS defaults to DFJK. Run `obs-input-overlay/MilkFrogKeySetup.exe` to select 4K–8K and change gameplay keys and the laughter shortcut; saving updates legends and bindings without restarting OBS. Desktop gameplay preferences are independent; the laughter shortcut is shared.
 
 ## Files
 
@@ -69,6 +72,8 @@ The bundled plugin targets 64-bit Windows and OBS 32.2.2. Keep the entire `obs-i
 Download the EXE from [Releases](https://github.com/Bassssor/Mania-Frog/releases/latest). For the complete project, use Code → Download ZIP or `git clone https://github.com/Bassssor/Mania-Frog.git`.
 See the [source instructions](source/README.en.md) to rebuild. No ZIP archive is produced.
 
-## Executable size
+## Current release
 
-The standalone EXE is 13,862,912 bytes (13.9 MB), about 78% smaller than the original 62,394,368-byte build. Seven unused runtime libraries were removed; code, dependencies and audio use lossless resource compression. Embedded laughter frames use WebP colour quality 0.95 with pixel-exact alpha, retaining 720?720, 24 fps, 216 frames and nine seconds. Idle/gameplay artwork is unchanged. OBS assets retain their original files. See `verification/executable-size/` for checks and visual comparisons.
+This release adds 4K–8K modes, three shared keyboards, independent finger poses, and corrected hand/forearm edges. Gameplay keys show the laughing expression. Exiting displays the complete sad pose for 600 ms, then fades out over 800 ms.
+
+The released EXE is 25,602,048 bytes (25.6 MB), identical to the verified local edge-fix build. Its embedded clip uses JPEG XR colour quality 0.95 with lossless alpha; the source also retains the WebP packaging option. Further memory and size optimization is separate from this release. See [verification](verification/arm-edge-v17/README.md).

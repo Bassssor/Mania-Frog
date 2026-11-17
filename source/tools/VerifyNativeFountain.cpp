@@ -13,8 +13,8 @@ void advance(frog::Fountain &f,float seconds,int fps,unsigned held,unsigned pend
 }
 int main() {
     try {
-        for(int fps:{30,60,120,240}) for(unsigned mask=1;mask<16;++mask) {
-            frog::Fountain f;float highest=880;
+        for(unsigned lanes:{4u,5u,6u,7u,8u}) for(int fps:{30,60,120,240}) for(unsigned mask=1;mask<(1u<<lanes);++mask) {
+            frog::LaneCount=lanes;frog::Fountain f;float highest=880;
             for(int frame=0;frame<fps*2;++frame) {
                 advance(f,1.f/fps,fps,mask);
                 require(f.particles.size()<=2048,"Particle budget exceeded");
@@ -24,12 +24,12 @@ int main() {
             advance(f,.42f,fps,0);
             require(f.particles.empty() && !f.active(),"Released fountain did not clear within .42s");
         }
-        frog::Fountain f;advance(f,.7f,120,15);advance(f,.45f,120,14);
+        frog::LaneCount=4;frog::Fountain f;advance(f,.7f,120,15);advance(f,.45f,120,14);
         require(!f.particles.empty(),"Held keys stopped when another key released");
         for(const auto& p:f.particles)require(p.key!=0,"Released D particles survived past fade limit");
         frog::Fountain tap;advance(tap,1/120.f,120,0,1);
         require(!tap.particles.empty() && tap.previous==0,"Subframe tap was lost or left a stuck held pose");
         advance(tap,.42f,120,0);require(tap.particles.empty(),"Subframe tap particles never cleared");
-        std::cout<<"PASS: 60 mask/FPS cases, neck-height fountain, bounded particles, per-key release and subframe taps.\n";
+        std::cout<<"PASS: 1964 mask/FPS cases across 4K–8K, neck-height fountain, bounded particles, per-key release and subframe taps.\n";
     } catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 1;}
 }

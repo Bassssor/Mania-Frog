@@ -22,7 +22,7 @@ MODULE_EXPORT const char *obs_module_name(void) { return "Milk Frog Input Overla
 
 namespace {
 constexpr float Pi = 3.14159265358979323846f;
-std::atomic<unsigned> heldKeys{0}, strikes[4];
+std::atomic<unsigned> heldKeys{0}, strikes[frog::MaxLanes];
 std::thread hookThread;
 std::atomic<DWORD> hookThreadId{0};
 HHOOK keyboardHook = nullptr;
@@ -77,7 +77,7 @@ LRESULT CALLBACK keyboardProc(int code, WPARAM message, LPARAM value) {
             bool bound=false;for(auto binding:gameplayKeys)bound|=frog::BindingMatches(binding,key->vkCode);
             playback.key(key->vkCode,down,bound,old!=0,frog::NowNs());
             const unsigned mask=frog::ObsHeldMask(gameplayKeys,playback.pressed);heldKeys=mask;
-            for(int i=0;i<4;++i)if((mask&~old)&(1u<<i))++strikes[i];
+            for(unsigned i=0;i<gameplayKeys.size();++i)if((mask&~old)&(1u<<i))++strikes[i];
         }
     }
     return CallNextHookEx(keyboardHook, code, message, value);
@@ -102,10 +102,36 @@ struct GraphicsLock {
     GraphicsLock() {obs_enter_graphics();}
     ~GraphicsLock() {obs_leave_graphics();}
 };
+struct PartAtlas {
+    gs_image_file4_t image{};
+    unsigned x=0,y=0,width=0,height=0,columns=0,count=0;
+    void free(){gs_image_file4_free(&image);}
+    bool load(obs_data_t *spec,const std::filesystem::path& directory) {
+        free();if(!spec)return false;
+        x=unsigned(obs_data_get_int(spec,"x"));y=unsigned(obs_data_get_int(spec,"y"));
+        width=unsigned(obs_data_get_int(spec,"width"));height=unsigned(obs_data_get_int(spec,"height"));
+        columns=unsigned(obs_data_get_int(spec,"columns"));count=unsigned(obs_data_get_int(spec,"count"));
+        if(!width || !height || width>880 || height>880 || !columns || columns>4 || !count || count>32)return false;
+        const auto path=(directory/std::filesystem::u8path(obs_data_get_string(spec,"file"))).u8string();
+        gs_image_file4_init(&image,path.c_str(),GS_IMAGE_ALPHA_PREMULTIPLY);gs_image_file4_init_texture(&image);
+        const auto& file=image.image3.image2.image;
+        return file.loaded && file.cx==(width+3)*columns+2 && file.cy==(height+3)*((count+columns-1)/columns)+2;
+    }
+    void draw(unsigned index) {
+        auto *texture=image.image3.image2.image.texture;if(!texture || index>=count)return;
+        auto *effect=obs_get_base_effect(OBS_EFFECT_DEFAULT);
+        gs_effect_set_texture(gs_effect_get_param_by_name(effect,"image"),texture);
+        gs_matrix_push();gs_matrix_translate3f(float(x),float(y),0);
+        while(gs_effect_loop(effect,"Draw"))gs_draw_sprite_subregion(texture,0,1+index%columns*(width+3),1+index/columns*(height+3),width,height);
+        gs_matrix_pop();
+    }
+};
 struct Filter {
     obs_source_t *source;
     std::string configPath;
     gs_image_file4_t background{}, foreground{};
+    std::array<PartAtlas,4> parts{}; // Body, desk, hands, multiplicative arm shadows.
+    bool separatedParts=false;
     gs_texture_t *halo = nullptr;
     gs_effect_t *effect = nullptr;
     gs_texrender_t *composed = nullptr;
@@ -113,18 +139,19 @@ struct Filter {
     gs_texture_t *laughTexture=nullptr,*labelsTexture=nullptr;
     frog::ObsBindings labelKeys=frog::DefaultObsBindings,renderedKeys{};
     bool dynamicLabels=false;
+    unsigned atlasColumns=4;
     int laughFrame=-1;
     bool laughLoaded=false;
     std::array<gs_vertbuffer_t *,3> buffers{};
     frog::Fountain fountain;
     unsigned held = 0;
-    std::array<unsigned,4> seen{};
+    std::array<unsigned,frog::MaxLanes> seen{};
     bool particlesEnabled = true, dirty = true, loaded = false;
     std::mutex mutex;
     std::vector<Vertex> glow, solid, trail;
 
     explicit Filter(obs_source_t *s): source(s) {
-        for(int i=0;i<4;++i) seen[i]=strikes[i].load();
+        for(unsigned i=0;i<frog::MaxLanes;++i) seen[i]=strikes[i].load();
         glow.reserve(2048*6+64); solid.reserve(2048*60+1600); trail.reserve(2048*2);
         obs_enter_graphics();
         char *error=nullptr;
@@ -154,10 +181,19 @@ struct Filter {
     ~Filter() {
         obs_enter_graphics();
         gs_image_file4_free(&background); gs_image_file4_free(&foreground);
+        for(auto& part:parts)part.free();
         gs_texture_destroy(halo); gs_effect_destroy(effect); gs_texrender_destroy(composed);
         gs_texture_destroy(laughTexture);gs_texture_destroy(labelsTexture);
         for(auto *buffer:buffers)gs_vertexbuffer_destroy(buffer);
         obs_leave_graphics();
+    }
+    bool validAtlas(unsigned lanes) const {
+        const auto& b=background.image3.image2.image;
+        const auto& f=foreground.image3.image2.image;
+        const unsigned rows=((1u<<lanes)+atlasColumns-1)/atlasColumns;
+        return b.loaded && f.loaded && b.cx==atlasColumns*883+2 && b.cy==rows*883+2
+            && f.cx==b.cx && f.cy==b.cy && effect && halo && composed
+            && std::all_of(buffers.begin(),buffers.end(),[](auto *buffer){return buffer!=nullptr;});
     }
     void update(obs_data_t *settings) {
         // Settings may arrive on the UI/API thread while video rendering is
@@ -172,10 +208,13 @@ struct Filter {
         obs_data_t *config=obs_data_create_from_json_file(path.c_str());
         if(!config) { blog(LOG_ERROR,"[milk-frog] configuration unavailable"); return; }
         obs_data_t *spec=obs_data_get_obj(config,"milk_frog");
-        if(!spec || obs_data_get_int(spec,"version")!=1 || obs_data_get_int(spec,"tile_size")!=880 || obs_data_get_int(spec,"stride")!=883) {
+        const auto version=spec?obs_data_get_int(spec,"version"):0;
+        if(!spec || (version!=1 && version!=2) || obs_data_get_int(spec,"tile_size")!=880 || obs_data_get_int(spec,"stride")!=883) {
             blog(LOG_ERROR,"[milk-frog] configuration is not a compatible mascot preset");
         } else {
             auto dir=std::filesystem::u8path(path).parent_path();
+            separatedParts=version==2;
+            atlasColumns=obs_data_get_int(spec,"atlas_columns")==8?8:4;
             dynamicLabels=obs_data_get_bool(spec,"dynamic_key_labels");
             if(dynamicLabels) {
                 auto name=std::string(obs_data_get_string(spec,"keybindings_file"));if(name.empty())name="keybindings.json";
@@ -184,26 +223,46 @@ struct Filter {
 
             laughLoaded=laugh.load(dir/L"laugh-frames.mfa");
             if(!laughLoaded)blog(LOG_WARNING,"[milk-frog] Laughter video unavailable; normal inputs remain usable.");
+            if(separatedParts) {
+                auto *list=obs_data_get_obj(spec,"parts");const char* names[]={"body","desk","hand","shadow"};
+                loaded=effect && halo && composed && std::all_of(buffers.begin(),buffers.end(),[](auto *buffer){return buffer!=nullptr;});
+                for(unsigned i=0;i<parts.size();++i) {
+                    auto *part=obs_data_get_obj(list,names[i]);loaded=parts[i].load(part,dir) && loaded;obs_data_release(part);
+                }
+                obs_data_release(list);
+            } else {
             auto bg=(dir/std::filesystem::u8path(obs_data_get_string(spec,"background_atlas"))).u8string();
             auto fg=(dir/std::filesystem::u8path(obs_data_get_string(spec,"foreground_atlas"))).u8string();
             gs_image_file4_free(&background); gs_image_file4_free(&foreground);
             gs_image_file4_init(&background,bg.c_str(),GS_IMAGE_ALPHA_PREMULTIPLY);
             gs_image_file4_init(&foreground,fg.c_str(),GS_IMAGE_ALPHA_PREMULTIPLY);
             gs_image_file4_init_texture(&background); gs_image_file4_init_texture(&foreground);
-            const auto& b=background.image3.image2.image;
-            const auto& f=foreground.image3.image2.image;
-            loaded=b.loaded && f.loaded && b.cx==3534 && b.cy==3534 && f.cx==3534 && f.cy==3534 && effect && halo && composed
-                && std::all_of(buffers.begin(),buffers.end(),[](auto *buffer){return buffer!=nullptr;});
+            loaded=validAtlas(4);
+            }
         }
         obs_data_release(spec); obs_data_release(config); dirty=true;
     }
     void tick(float seconds) {
+        GraphicsLock graphics;
         std::lock_guard<std::mutex> lock(mutex);
         frog::ObsBindings currentKeys;unsigned mask=0,pending=0;
         {std::lock_guard<std::mutex> inputLock(playbackMutex);
          currentKeys=gameplayKeys;mask=heldKeys.load();
-         for(int i=0;i<4;++i) {unsigned now=strikes[i].load();if(now!=seen[i])pending|=1u<<i;seen[i]=now;}}
-        if(dynamicLabels && currentKeys!=labelKeys){labelKeys=currentKeys;fountain=frog::Fountain();dirty=true;}
+         for(unsigned i=0;i<frog::MaxLanes;++i) {unsigned now=strikes[i].load();if(now!=seen[i])pending|=1u<<i;seen[i]=now;}}
+        if(dynamicLabels && currentKeys!=labelKeys) {
+            if(!separatedParts && currentKeys.size()!=labelKeys.size()) {
+                const auto dir=std::filesystem::u8path(configPath).parent_path();
+                const auto bg=(dir/("background-"+std::to_string(currentKeys.size())+"k-atlas.png")).u8string();
+                const auto fg=(dir/("foreground-"+std::to_string(currentKeys.size())+"k-atlas.png")).u8string();
+                gs_image_file4_free(&background);gs_image_file4_free(&foreground);
+                gs_image_file4_init(&background,bg.c_str(),GS_IMAGE_ALPHA_PREMULTIPLY);gs_image_file4_init_texture(&background);
+                gs_image_file4_init(&foreground,fg.c_str(),GS_IMAGE_ALPHA_PREMULTIPLY);gs_image_file4_init_texture(&foreground);
+                atlasColumns=currentKeys.size()==4?4:8;
+                loaded=validAtlas(unsigned(currentKeys.size()));
+            }
+            labelKeys=currentKeys;fountain=frog::Fountain();dirty=true;
+        }
+        frog::LaneCount=unsigned(currentKeys.size());
         dirty=dirty || held!=mask || pending || fountain.active(); held=mask;
         auto state=playbackSnapshot();
         const int frame=laughLoaded?state.frame(frog::NowNs()):-1;
@@ -247,7 +306,7 @@ struct Filter {
     void flush() {submit(glow,true,GS_TRIS);submit(solid,false,GS_TRIS);submit(trail,false,GS_LINES);}
     void surface() {
         glow.clear();solid.clear();trail.clear();
-        for(int i=0;i<4;++i) {
+        for(unsigned i=0;i<labelKeys.size();++i) {
             auto p=fountain.centers[i];float c=fountain.charge[i];
             if(c>0) {glowQuad(p.x,p.y,38,16,255,200,65,c*(.94f+.06f*std::sin(fountain.time*9+i))*150,Pi/18);glowQuad(p.x,p.y,12,5,255,243,183,c*85,Pi/18);}
             if(fountain.strikeAge[i]<.30f) {
@@ -288,7 +347,7 @@ struct Filter {
     void sprite(gs_texture_t *texture) {
         auto *spriteEffect=obs_get_base_effect(OBS_EFFECT_DEFAULT);
         gs_effect_set_texture(gs_effect_get_param_by_name(spriteEffect,"image"),texture);
-        while(gs_effect_loop(spriteEffect,"Draw"))gs_draw_sprite_subregion(texture,0,1+held%4*883,1+held/4*883,880,880);
+        while(gs_effect_loop(spriteEffect,"Draw"))gs_draw_sprite_subregion(texture,0,1+held%atlasColumns*883,1+held/atlasColumns*883,880,880);
     }
     void render() {
         std::lock_guard<std::mutex> lock(mutex);
@@ -322,7 +381,14 @@ struct Filter {
                     }
                 }
                 if(!showingLaugh) {
-                    sprite(background.image3.image2.image.texture);
+                    if(separatedParts) {
+                        parts[0].draw(held?1:0);
+                        gs_blend_function_separate(GS_BLEND_DSTCOLOR,GS_BLEND_INVSRCALPHA,GS_BLEND_ZERO,GS_BLEND_ONE);
+                        parts[3].draw(frog::LeftPose(held,unsigned(labelKeys.size())));
+                        parts[3].draw(16+frog::RightPose(held,unsigned(labelKeys.size())));
+                        gs_blend_function(GS_BLEND_ONE,GS_BLEND_INVSRCALPHA);
+                        parts[1].draw(parts[1].count==3?frog::KeyboardIndex(unsigned(labelKeys.size())):unsigned(labelKeys.size())-4);
+                    } else sprite(background.image3.image2.image.texture);
                     if(dynamicLabels && labelsTexture) {
                         auto *labelEffect=obs_get_base_effect(OBS_EFFECT_DEFAULT);
                         gs_effect_set_texture(gs_effect_get_param_by_name(labelEffect,"image"),labelsTexture);
@@ -330,7 +396,10 @@ struct Filter {
                     }
 
                     if(particlesEnabled){surface();particles(-1);}
-                    sprite(foreground.image3.image2.image.texture);
+                    if(separatedParts) {
+                        parts[2].draw(frog::LeftPose(held,unsigned(labelKeys.size())));
+                        parts[2].draw(16+frog::RightPose(held,unsigned(labelKeys.size())));
+                    } else sprite(foreground.image3.image2.image.texture);
                     if(particlesEnabled)particles(1);
                 }
                 gs_blend_state_pop();gs_texrender_end(composed);dirty=false;

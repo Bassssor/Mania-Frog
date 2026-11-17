@@ -20,11 +20,54 @@
     }
   ],
   "milk_frog": {
-    "version": 1,
+    "version": 2,
     "tile_size": 880,
     "stride": 883,
-    "background_atlas": "background-atlas.png",
-    "foreground_atlas": "foreground-atlas.png",
+    "parts": {
+      "body": {
+        "file": "body-parts.png",
+        "x": 207,
+        "y": 55,
+        "width": 542,
+        "height": 594,
+        "columns": 2,
+        "count": 2
+      },
+      "desk": {
+        "file": "desk-parts.png",
+        "x": 34,
+        "y": 429,
+        "width": 812,
+        "height": 284,
+        "columns": 3,
+        "count": 3
+      },
+      "hand": {
+        "file": "hand-parts.png",
+        "x": 252,
+        "y": 252,
+        "width": 460,
+        "height": 330,
+        "columns": 4,
+        "count": 32
+      },
+      "shadow": {
+        "file": "shadow-parts.png",
+        "x": 246,
+        "y": 262,
+        "width": 487,
+        "height": 326,
+        "columns": 4,
+        "count": 32
+      }
+    },
+    "supported_lanes": [
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
     "dynamic_key_labels": true,
     "keybindings_file": "keybindings.json"
   }

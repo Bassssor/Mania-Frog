@@ -10,14 +10,13 @@
 namespace {
 std::filesystem::path folder;
 frog::ObsBindings edited=frog::DefaultObsBindings;
-HWND window=nullptr,hint=nullptr,laughButton=nullptr,buttons[4]{};
+HWND window=nullptr,hint=nullptr,laughButton=nullptr,buttons[frog::MaxLanes]{};
 frog::KeyChord editedLaugh;frog::ChordCapture laughCapture;bool laughCapturing=false;
 HHOOK hook=nullptr;
 int capturing=-1;
 std::array<bool,256> swallowed{};
 constexpr UINT Captured=WM_APP+10,LaughCaptured=WM_APP+11;
 constexpr int SaveId=110,ResetId=111,LaughId=112,LaughResetId=113;
-const wchar_t *positions[4]={L"左手外侧",L"左手内侧",L"右手内侧",L"右手外侧"};
 std::wstring failure;
 bool AtomicReplace(const std::filesystem::path& temporary,const std::filesystem::path& target) {
     for(int attempt=0;attempt<10;++attempt) {
@@ -28,11 +27,11 @@ bool AtomicReplace(const std::filesystem::path& temporary,const std::filesystem:
     return false;
 }
 bool Apply(const frog::ObsBindings& keys,const frog::KeyChord& laugh) {
-    if(!frog::ValidObsBindings(keys)){failure=L"四个键位不能重复或相互重叠。";return false;}
+    if(!frog::ValidObsBindings(keys)){failure=L"各轨道键位不能重复或相互重叠。";return false;}
     for(auto key:keys)for(unsigned i=0;i<laugh.count;++i)if(frog::ChordKey(key)==laugh.codes[i]) {
         failure=L"敲键与当前的重开大笑键重叠。请先修改大笑快捷键。";return false;
     }
-    const auto preset=folder/L"milk-frog.json",base=folder/L"milk-frog-unlabeled.png";
+    const auto preset=folder/L"milk-frog.json",base=folder/(L"milk-frog-"+std::to_wstring(keys.size())+L"k-unlabeled.png");
     if(!std::filesystem::is_regular_file(preset) || !std::filesystem::is_regular_file(base)) {
         failure=L"找不到配套素材。请将本工具保留在完整的 obs-input-overlay 文件夹内。";return false;
     }
@@ -49,7 +48,7 @@ bool Apply(const frog::ObsBindings& keys,const frog::KeyChord& laugh) {
     {
         std::ofstream out(configTemp,std::ios::binary|std::ios::trunc);
         out<<"{\n  \"version\": 1,\n  \"keys\": [";
-        for(unsigned i=0;i<4;++i){if(i)out<<", ";out<<keys[i];}
+        for(unsigned i=0;i<keys.size();++i){if(i)out<<", ";out<<keys[i];}
         out<<"],\n  \"revision\": "<<GetTickCount64()<<"\n}\n";
         out.flush();if(!out){failure=L"键位配置无法保存。";return false;}
     }
@@ -85,7 +84,10 @@ bool SaveLaughShortcut() {
 }
 void Refresh() {
     SetWindowTextW(laughButton,(L"重开大笑键："+LaughText(editedLaugh)).c_str());
-    for(unsigned i=0;i<4;++i){auto text=std::wstring(positions[i])+L"："+frog::KeyName(edited[i]);SetWindowTextW(buttons[i],text.c_str());}
+    for(unsigned i=0;i<frog::MaxLanes;++i) {
+        ShowWindow(buttons[i],i<edited.size()?SW_SHOW:SW_HIDE);
+        if(i<edited.size()){auto text=std::wstring(frog::LaneFinger(i,unsigned(edited.size())))+L"："+frog::KeyName(edited[i]);SetWindowTextW(buttons[i],text.c_str());}
+    }
 }
 LRESULT CALLBACK Keyboard(int code,WPARAM message,LPARAM data) {
     if(code==HC_ACTION) {
@@ -119,17 +121,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd,UINT message,WPARAM w,LPARAM l) {
             SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(GetStockObject(DEFAULT_GUI_FONT)),TRUE);return child;
         };
         control(L"STATIC",L"点击位置 → 按目标键 → 保存并应用",0,20,18,460,24,0);
-        for(int i=0;i<4;++i)buttons[i]=control(L"BUTTON",L"",WS_TABSTOP,20+(i%2)*232,58+(i/2)*55,218,42,100+i);
-        laughButton=control(L"BUTTON",L"",WS_TABSTOP,20,172,310,42,LaughId);
-        control(L"BUTTON",L"恢复 F5",WS_TABSTOP,344,172,106,42,LaughResetId);
-        hint=control(L"STATIC",L"保存后自动更新键帽、敲键绑定和大笑快捷键，无需重启 OBS。",0,20,238,460,65,0);
-        control(L"BUTTON",L"恢复 DFJK",WS_TABSTOP,20,326,120,36,ResetId);
-        control(L"BUTTON",L"保存并应用",WS_TABSTOP|BS_DEFPUSHBUTTON,218,326,126,36,SaveId);
-        control(L"BUTTON",L"关闭",WS_TABSTOP,358,326,100,36,IDCANCEL);
+        auto modes=control(L"COMBOBOX",L"",CBS_DROPDOWNLIST|WS_TABSTOP,20,50,160,100,114);
+        for(const wchar_t* label:{L"4K",L"5K",L"6K",L"7K",L"8K"})SendMessageW(modes,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label));
+        SendMessageW(modes,CB_SETCURSEL,edited.size()-4,0);
+        for(int i=0;i<int(frog::MaxLanes);++i)buttons[i]=control(L"BUTTON",L"",WS_TABSTOP,20+(i%2)*232,90+(i/2)*55,218,42,100+i);
+        laughButton=control(L"BUTTON",L"",WS_TABSTOP,20,315,310,42,LaughId);
+        control(L"BUTTON",L"恢复 F5",WS_TABSTOP,344,315,106,42,LaughResetId);
+        hint=control(L"STATIC",L"保存后自动更新键帽、敲键绑定和大笑快捷键，无需重启 OBS。",0,20,370,460,65,0);
+        control(L"BUTTON",L"恢复模式默认键",WS_TABSTOP,20,450,120,36,ResetId);
+        control(L"BUTTON",L"保存并应用",WS_TABSTOP|BS_DEFPUSHBUTTON,218,450,126,36,SaveId);
+        control(L"BUTTON",L"关闭",WS_TABSTOP,358,450,100,36,IDCANCEL);
         Refresh();return 0;
     }
     case Captured:
-        if(w!=VK_ESCAPE && l>=0 && l<4)edited[size_t(l)]=unsigned(w);
+        if(w!=VK_ESCAPE && l>=0 && l<static_cast<LPARAM>(edited.size()))edited[size_t(l)]=unsigned(w);
         Refresh();SetWindowTextW(hint,w==VK_ESCAPE?L"已取消本次录入。":L"录入完成。点击“保存并应用”使 OBS 生效。");return 0;
     case LaughCaptured:
         if(w==1) {
@@ -139,8 +144,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd,UINT message,WPARAM w,LPARAM l) {
         else SetWindowTextW(laughButton,(L"录入中："+LaughText(laughCapture.chord)).c_str());
         return 0;
     case WM_COMMAND:
-        if(LOWORD(w)>=100 && LOWORD(w)<104){laughCapturing=false;Refresh();capturing=int(LOWORD(w))-100;SetWindowTextW(buttons[capturing],L"请按目标键（Esc 取消）");SetWindowTextW(hint,L"支持字母、空格和左右 Ctrl / Shift / Alt 等功能键。");return 0;}
-        if(LOWORD(w)==ResetId){capturing=-1;laughCapturing=false;edited=frog::DefaultObsBindings;Refresh();SetWindowTextW(hint,L"已恢复 DFJK，点击“保存并应用”保存。");return 0;}
+        if(LOWORD(w)==114 && HIWORD(w)==CBN_SELCHANGE) {
+            const auto count=unsigned(SendDlgItemMessageW(hwnd,114,CB_GETCURSEL,0,0))+4;
+            capturing=-1;laughCapturing=false;edited=frog::DefaultObsKeys(count);Refresh();
+            SetWindowTextW(hint,L"模式与默认键位已更新；点击保存并应用后生效。");return 0;
+        }
+        if(LOWORD(w)>=100 && LOWORD(w)<100+edited.size()){laughCapturing=false;Refresh();capturing=int(LOWORD(w))-100;SetWindowTextW(buttons[capturing],L"请按目标键（Esc 取消）");SetWindowTextW(hint,L"支持字母、空格和左右 Ctrl / Shift / Alt 等功能键。");return 0;}
+        if(LOWORD(w)==ResetId){capturing=-1;laughCapturing=false;edited=frog::DefaultObsKeys(unsigned(edited.size()));Refresh();SetWindowTextW(hint,L"已恢复当前模式默认键，点击“保存并应用”保存。");return 0;}
         if(LOWORD(w)==LaughId){capturing=-1;Refresh();laughCapture.reset();laughCapturing=true;SetWindowTextW(laughButton,L"按下完整组合，再松开全部按键…");SetWindowTextW(hint,L"支持 F5、Ctrl+Q、Ctrl+Shift+Q 等组合；Esc 取消录入。");return 0;}
         if(LOWORD(w)==LaughResetId){capturing=-1;laughCapturing=false;editedLaugh=frog::KeyChord();Refresh();SetWindowTextW(hint,L"已恢复 F5，点击保存后生效。");return 0;}
         if(LOWORD(w)==SaveId){
@@ -162,15 +172,21 @@ int Verify(const std::filesystem::path& out) {
     std::filesystem::create_directories(out);
     if(frog::ValidObsBindings({'A','A','S','D'}) || frog::ValidObsBindings({VK_CONTROL,VK_LCONTROL,'A','S'}))return 10;
     unsigned long long pixels=0;
-    for(unsigned key=1;key<256;++key) {
+    unsigned labelChecks=0;
+    for(unsigned lanes=4;lanes<=frog::MaxLanes;++lanes)for(unsigned key=1;key<256;++key) {
         if(frog::KeyName(key).size()>3)return 11;
-        auto data=frog::RenderObsKeyLabels({key,key,key,key});if(data.empty())return 12;
-        std::array<unsigned,4> slotPixels{};
+        auto data=frog::RenderObsKeyLabels(frog::ObsBindings(lanes,key));if(data.empty())return 12;
+        std::vector<unsigned> slotPixels(lanes);
         for(unsigned y=0;y<880;++y)for(unsigned x=0;x<880;++x)if(data[(y*880+x)*4+3]) {
-            if(!frog::InsideKeyLabel(x+.5f,y+.5f))return 13;
-            ++pixels;for(unsigned i=0;i<4;++i)if(std::abs(float(x)-frog::ObsKeyX[i])<42 && std::abs(float(y)-frog::ObsKeyY[i])<28)++slotPixels[i];
+            if(!frog::InsideKeyLabel(x+.5f,y+.5f,lanes))return 13;
+            ++pixels;
+            for(unsigned i=0;i<lanes;++i) {
+                const auto p=frog::LaneLabelCenter(i,lanes);
+                if(std::abs(float(x)-(p.x-120))<30 && std::abs(float(y)-(p.y-1))<28)++slotPixels[i];
+            }
         }
         if(std::any_of(slotPixels.begin(),slotPixels.end(),[](unsigned n){return n<4;}))return 14;
+        labelChecks+=lanes;
     }
     auto rgba=frog::RenderObsKeyLabels({VK_LCONTROL,VK_RCONTROL,VK_SPACE,VK_RETURN});
     if(!frog::SaveObsLabels(out/L"function-key-labels.png",rgba))return 15;
@@ -178,7 +194,7 @@ int Verify(const std::filesystem::path& out) {
     if(frog::ObsHeldMask({VK_LCONTROL,VK_RCONTROL,'A',VK_SPACE},down)!=2)return 16;
     down.fill(false);down[VK_RWIN]=true;
     if(!frog::ValidObsBindings({VK_LWIN,VK_RWIN,'A','S'}) || frog::ObsHeldMask({VK_LWIN,VK_RWIN,'A','S'},down)!=2)return 17;
-    std::ofstream(out/L"report.json")<<"{\"passed\":true,\"label_checks\":1020,\"alpha_pixels_within_keycap_insets\":"<<pixels<<",\"left_right_modifiers_distinct\":true}\n";
+    std::ofstream(out/L"report.json")<<"{\"passed\":true,\"label_checks\":"<<labelChecks<<",\"alpha_pixels_within_keycap_insets\":"<<pixels<<",\"left_right_modifiers_distinct\":true}\n";
     return 0;
 }
 }
@@ -190,14 +206,14 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR,int show) {
     try {
         if(count>=3 && std::wstring(args[1])==L"--verify"){int result=Verify(std::filesystem::absolute(args[2]));LocalFree(args);return result;}
         if(count>=6 && std::wstring(args[1])==L"--set") {
-            frog::ObsBindings keys{};for(int i=0;i<4;++i)keys[i]=unsigned(std::stoul(args[i+2]));
+            frog::ObsBindings keys;for(int i=2;i<count && keys.size()<frog::MaxLanes;++i){if(std::wstring(args[i]).rfind(L"--",0)==0)break;keys.push_back(unsigned(std::stoul(args[i])));}
             bool result=Apply(keys,frog::ReadLaughHotkey(frog::LaughConfigPath()));LocalFree(args);return result?0:20;
         }
         frog::ReadObsBindings(folder/L"keybindings.json",edited);
         editedLaugh=frog::ReadLaughHotkey(frog::LaughConfigPath());
         WNDCLASSW type{};type.lpfnWndProc=WindowProc;type.hInstance=instance;type.lpszClassName=L"MilkFrogObsKeySetup";
         type.hCursor=LoadCursorW(nullptr,IDC_ARROW);type.hIcon=LoadIconW(instance,MAKEINTRESOURCEW(101));type.hbrBackground=reinterpret_cast<HBRUSH>(COLOR_BTNFACE+1);
-        RegisterClassW(&type);window=CreateWindowExW(0,type.lpszClassName,L"奶蛙 OBS 快捷改键",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,CW_USEDEFAULT,CW_USEDEFAULT,500,415,nullptr,nullptr,instance,nullptr);
+        RegisterClassW(&type);window=CreateWindowExW(0,type.lpszClassName,L"奶蛙 OBS 快捷改键",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,CW_USEDEFAULT,CW_USEDEFAULT,500,540,nullptr,nullptr,instance,nullptr);
         if(!window){LocalFree(args);return 1;}
         hook=SetWindowsHookExW(WH_KEYBOARD_LL,Keyboard,instance,0);
         if(!hook){DestroyWindow(window);LocalFree(args);return 2;}

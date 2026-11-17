@@ -1,4 +1,5 @@
 #pragma once
+#include "../../shared/LaneLayout.hpp"
 #include <SFML/Graphics.hpp>
 #include <algorithm>
 #include <array>
@@ -17,12 +18,12 @@ class ParticleEffects {
     };
     std::vector<Particle> particles;
     sf::Texture halo;
-    std::array<float, 4> charge{}, emission{};
-    std::array<float, 4> strikeAge{{10.f,10.f,10.f,10.f}};
+    std::array<float, frog::MaxLanes> charge{}, emission{};
+    std::array<float, frog::MaxLanes> strikeAge{{10.f,10.f,10.f,10.f,10.f,10.f,10.f,10.f}};
     unsigned previous = 0;
     std::uint32_t seed = 0x51A7D321u;
     float time = 0.f;
-    std::array<sf::Vector2f,4> strikeCenters{};
+    std::array<sf::Vector2f,frog::MaxLanes> strikeCenters{};
     mutable std::vector<sf::Vertex> glowVertices,solidVertices,trailVertices;
     float Random() {
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
@@ -60,16 +61,11 @@ public:
     static constexpr float Gravity=600.f;
     static constexpr float ReleaseFadeSeconds=.40f;
     static constexpr unsigned BurstCount = 96, MaxParticles = 2048;
-    inline static const std::array<sf::Vector2f, 4> Centers = {{
+    inline static const std::array<sf::Vector2f, frog::MaxLanes> Centers = {{
         {710.f,568.f}, {605.f,544.f}, {499.f,523.f}, {397.f,504.f}
     }};
-    static sf::Vector2f Anchor(unsigned mask,unsigned key) {
-        // Measured fingertip contacts, in the registered native canvas.
-        // The combined poses move a finger slightly, so their anchors differ.
-        if(key==0)return (mask&3u)==3u?sf::Vector2f(696,529):sf::Vector2f(705,533);
-        if(key==1)return (mask&3u)==3u?sf::Vector2f(646,517):sf::Vector2f(594,526);
-        if(key==2)return (mask&12u)==12u?sf::Vector2f(484,497):sf::Vector2f(498,510);
-        return (mask&12u)==12u?sf::Vector2f(434,491):sf::Vector2f(413,481);
+    static sf::Vector2f Anchor(unsigned,unsigned key) {
+        const auto p=frog::LaneCenter(key);return sf::Vector2f(p.x,p.y);
     }
     bool Load() {
         particles.reserve(MaxParticles);
@@ -95,7 +91,7 @@ public:
     void Advance(float seconds, unsigned held, unsigned pending = 0) {
         const float dt = std::clamp(seconds, 0.f, .05f); time += dt;
         const unsigned pressed = (held & ~previous) | pending;
-        for (unsigned i = 0; i < 4; ++i) {
+        for (unsigned i = 0; i < frog::LaneCount; ++i) {
             strikeAge[i] += dt;
             if((held|pressed)&(1u<<i))strikeCenters[i]=Anchor(held|pressed,i);
             if (pressed & (1u << i)) { Spawn(i,BurstCount,strikeCenters[i]); charge[i] = 1.f; emission[i] = 0.f; strikeAge[i]=0.f; }
@@ -130,14 +126,14 @@ public:
     }
     unsigned Count() const { return static_cast<unsigned>(particles.size()); }
     void DrawSurface(sf::RenderTarget& target) const {
-        for (unsigned i = 0; i < 4; ++i) if (charge[i] > 0.f) {
+        for (unsigned i = 0; i < frog::LaneCount; ++i) if (charge[i] > 0.f) {
             const float pulse = .94f + .06f * std::sin(time * 9.f + i);
             Glow(target,strikeCenters[i],{38.f,16.f},sf::Color(255,200,65,
                 static_cast<sf::Uint8>(charge[i]*pulse*150.f)),10.f);
             Glow(target,strikeCenters[i],{12.f,5.f},
                 sf::Color(255,243,183,static_cast<sf::Uint8>(charge[i]*85.f)),10.f);
         }
-        for (unsigned i=0;i<4;++i) if (strikeAge[i]<.30f) {
+        for (unsigned i=0;i<frog::LaneCount;++i) if (strikeAge[i]<.30f) {
             const float phase=strikeAge[i]/.30f, radius=7.f+phase*37.f;
             const sf::Color color(255,231,132,static_cast<sf::Uint8>((1.f-phase)*155.f));
             sf::VertexArray ring(sf::TriangleStrip,130);
