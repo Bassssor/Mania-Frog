@@ -61,3 +61,5 @@ OBS 拆分图集验收：`tools/VerifyObsParts.ps1 -ObsRoot <OBS安装目录>`�
 The v1.2.0 release asset preserves the verified JPEG XR build (25,602,048 bytes). Use `--frame-codec jxr` for that codec; default source builds use WebP.
 
 重新加工手势素材需要 Pillow、NumPy、SciPy、aggdraw。运行 `python tools/PrepareTargetHandArtwork.py`，输入位于 `assets/milk-frog/regenerated-hands/target-v11/`；验收后将 runtime-candidate 内的 hands-4k/6k/8k.png 复制至 `assets/milk-frog/four-finger/`。键盘由 `KeyboardSurface.hpp` 和 `build.ps1` 生成。退出姿态由 `tools/PrepareExitArtwork.py` 处理。`python tools/VerifyHandEdges.py` 检查前臂下缘接缝。
+
+本地低占用版：`build.ps1` 自动运行 `tools/PackRuntimeHands.py`；`python tools/VerifyRuntimeHands.py` 验证 32 个姿态的像素与位置。实测与最终安装包检查见 `../verification/memory-storage-v18/README.md`。

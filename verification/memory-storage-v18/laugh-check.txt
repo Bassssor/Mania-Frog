@@ -1,0 +1,1 @@
+PASS: F5 single playback/restart/repeat suppression, all DFJK and rebound A/S/LC/Space cancellations, automatic end and exact idle restoration.

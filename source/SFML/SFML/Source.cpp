@@ -16,6 +16,7 @@
 #include "ArmShadow.hpp"
 #include "KeyboardRear.hpp"
 #include "ExitAnimation.hpp"
+#include "CroppedLayer.hpp"
 #include "../../shared/LaughPlayback.hpp"
 #include "../../shared/KeyNames.hpp"
 #include "../../shared/LaneLayout.hpp"
@@ -236,8 +237,8 @@ class Artwork {
     sf::Texture keyboardRearTexture;
     sf::Texture pressedBodyTexture, exitPoseTexture;
     sf::Texture shadowTexture;
-    std::array<sf::Texture,32> extendedShadows;
-    std::array<sf::Texture,32> extendedHands;
+    std::array<CroppedLayer,32> extendedShadows;
+    std::array<CroppedLayer,32> extendedHands;
     std::array<sf::Texture,3> extendedKeyboard,extendedKeyboardShadow;
     bool hasTable=false,hasCorner=false,hasPressedFace=false,hasExitPose=false;
     bool legacyHandFixture=false;
@@ -245,14 +246,14 @@ class Artwork {
     sf::RenderTexture composite;
     void DrawHands(sf::RenderTarget& target,unsigned mask) {
         if(legacyHandFixture){target.draw(left);target.draw(right);return;}
-        target.draw(sf::Sprite(extendedHands[frog::LeftPose(mask)]));
-        target.draw(sf::Sprite(extendedHands[16+frog::RightPose(mask)]));
+        target.draw(extendedHands[frog::LeftPose(mask)].Sprite());
+        target.draw(extendedHands[16+frog::RightPose(mask)].Sprite());
     }
     void DrawArmShadow(sf::RenderTarget& target,unsigned mask,bool isolated=false) {
         const sf::BlendMode multiply(sf::BlendMode::DstColor,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add,sf::BlendMode::Zero,sf::BlendMode::One,sf::BlendMode::Add);
         const sf::BlendMode premultiplied(sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add,sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add);
         for(unsigned index:{frog::LeftPose(mask),16+frog::RightPose(mask)}) {
-            sf::Sprite shadow(extendedShadows[index]);shadow.setPosition(float(ArmShadow::Left),float(ArmShadow::Top));
+            const auto shadow=extendedShadows[index].Sprite();
             target.draw(shadow,sf::RenderStates(isolated?premultiplied:multiply));
         }
     }
@@ -261,9 +262,10 @@ class Artwork {
         if(!pose.create(Width,SpriteHeight))return false;
         const auto receiver=textures[0].copyToImage();
         for(unsigned index=0;index<extendedHands.size();++index) {
-            pose.clear(sf::Color::Transparent);pose.draw(sf::Sprite(extendedHands[index]));pose.display();
-            if(!extendedShadows[index].loadFromImage(ArmShadow::Build(pose.getTexture().copyToImage(),receiver,keyboard)))return false;
-            extendedShadows[index].setSmooth(true);
+            pose.clear(sf::Color::Transparent);pose.draw(extendedHands[index].Sprite());pose.display();
+            const auto shadow=ArmShadow::Build(pose.getTexture().copyToImage(),receiver,keyboard);
+            if(!extendedShadows[index].Load(shadow,{0,0,ArmShadow::Width,ArmShadow::Height},
+                {float(ArmShadow::Left),float(ArmShadow::Top)}))return false;
         }
         return true;
     }
@@ -277,9 +279,9 @@ public:
             target.draw(sf::Sprite(extendedKeyboardShadow[index]));
             target.draw(sf::Sprite(extendedKeyboard[index]));
         }
-        if(part=="hand")target.draw(sf::Sprite(extendedHands[index]));
+        if(part=="hand")target.draw(extendedHands[index].Sprite());
         if(part=="shadow") {
-            sf::Sprite shadow(extendedShadows[index]);shadow.setPosition(float(ArmShadow::Left),float(ArmShadow::Top));
+            const auto shadow=extendedShadows[index].Sprite();
             const sf::BlendMode premultiplied(sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add,sf::BlendMode::One,sf::BlendMode::OneMinusSrcAlpha,sf::BlendMode::Add);
             target.draw(shadow,sf::RenderStates(premultiplied));
         }
@@ -299,6 +301,7 @@ public:
     bool Load(const std::filesystem::path& assetDirectory = {},bool originalFixtureHands=false) {
         legacyHandFixture=originalFixtureHands;
         for (unsigned i = 0; i < textures.size(); ++i) {
+            if(i && !legacyHandFixture)continue;
             if (!textures[i].loadFromFile((assetDirectory / Files[i]).string()) || textures[i].getSize() != sf::Vector2u(Width, SpriteHeight)) {
                 const auto message = L"角色素材缺失或尺寸错误：\n" + std::filesystem::path(Files[i]).wstring();
                 MessageBoxW(nullptr, message.c_str(), L"奶蛙桌宠", MB_ICONERROR);
@@ -306,11 +309,19 @@ public:
             }
             textures[i].setSmooth(true);
         }
-        sf::Image four,eight;
-        if(!four.loadFromFile((assetDirectory/"hands-4k.png").string()) || !eight.loadFromFile((assetDirectory/"hands-8k.png").string()))return false;
-        constexpr unsigned mapping[]={7,1,3,2,8,6,4,5};
-        if(!legacyHandFixture)for(unsigned i=0;i<8;++i)if(!textures[mapping[i]].loadFromImage(four,sf::IntRect(i%4*Width,i/4*SpriteHeight,Width,SpriteHeight)))return false;
-        for(unsigned i=0;i<32;++i){if(!extendedHands[i].loadFromImage(eight,sf::IntRect(i%4*Width,i/4*SpriteHeight,Width,SpriteHeight)))return false;extendedHands[i].setSmooth(true);}
+        // All lane modes index the canonical 32 poses; avoid duplicate 4K textures.
+        {
+            int cellWidth=0,cellHeight=0,offsetX=0,offsetY=0;
+            std::ifstream layout(assetDirectory/"hands-runtime.txt");
+            if(!(layout>>cellWidth>>cellHeight>>offsetX>>offsetY) || cellWidth<=0 || cellHeight<=0 ||
+                offsetX<0 || offsetY<0 || offsetX+cellWidth>int(Width) || offsetY+cellHeight>int(SpriteHeight))return false;
+            sf::Image eight;
+            if(!eight.loadFromFile((assetDirectory/"hands-runtime.png").string()) ||
+                eight.getSize()!=sf::Vector2u(cellWidth*4,cellHeight*8))return false;
+            for(unsigned i=0;i<32;++i)if(!extendedHands[i].Load(eight,
+                sf::IntRect(i%4*cellWidth,i/4*cellHeight,cellWidth,cellHeight),
+                {float(offsetX),float(offsetY)}))return false;
+        }
         for(unsigned i=0;i<3;++i) {
             if(!extendedKeyboard[i].loadFromFile((assetDirectory/("keyboard-"+std::to_string(i*2+4)+"k.png")).string()))return false;
             extendedKeyboard[i].setSmooth(true);
@@ -392,6 +403,9 @@ public:
             }
         }
         if(!BuildArmShadows(shadowExclusion))return false;
+        // These donor textures are only needed to build the shadow exclusion.
+        cornerTexture=sf::Texture();keyboardTexture=sf::Texture();
+        keyboardRearTexture=sf::Texture();shadowTexture=sf::Texture();
         if (!composite.create(Width,Height)) return false;
         composite.setSmooth(true);
         std::array<wchar_t, MAX_PATH> windows{};
@@ -424,8 +438,10 @@ public:
         // Body-only exports keep the original face for geometry regressions.
         if(exitAnimation.active){mask=0;includeEffects=false;}
         body.setTexture(hasPressedFace && includeHands && mask!=0 ? pressedBodyTexture : textures[0]);
-        left.setTexture(textures[LeftFrame(mask)]);
-        right.setTexture(textures[RightFrame(mask)]);
+        if(legacyHandFixture) {
+            left.setTexture(textures[LeftFrame(mask)]);
+            right.setTexture(textures[RightFrame(mask)]);
+        }
         if(includeTable && hasTable) {
             target.draw(body);
             if(includeHands)DrawArmShadow(target,mask);
@@ -457,8 +473,10 @@ public:
         target.draw(sf::Sprite(composite.getTexture()),sf::RenderStates(premultiplied));
     }
     void DrawForeground(sf::RenderTarget& target, unsigned mask) {
-        left.setTexture(textures[LeftFrame(mask)]);
-        right.setTexture(textures[RightFrame(mask)]);
+        if(legacyHandFixture) {
+            left.setTexture(textures[LeftFrame(mask)]);
+            right.setTexture(textures[RightFrame(mask)]);
+        }
         target.clear(sf::Color::Transparent);
         DrawHands(target,mask);
     }

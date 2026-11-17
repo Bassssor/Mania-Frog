@@ -72,8 +72,8 @@ The bundled plugin targets 64-bit Windows and OBS 32.2.2. Keep the entire `obs-i
 Download the EXE from [Releases](https://github.com/Bassssor/Mania-Frog/releases/latest). For the complete project, use Code → Download ZIP or `git clone https://github.com/Bassssor/Mania-Frog.git`.
 See the [source instructions](source/README.en.md) to rebuild. No ZIP archive is produced.
 
-## Current release
+## Local memory and storage build
 
-This release adds 4K–8K modes, three shared keyboards, independent finger poses, and corrected hand/forearm edges. Gameplay keys show the laughing expression. Exiting displays the complete sad pose for 600 ms, then fades out over 800 ms.
+This local tree includes memory and storage improvements. The EXE is 14,923,264 bytes. Cropped hand/shadow textures, a compact runtime atlas and an exiting bootstrap process reduce resident memory. Measured idle working set including the launcher fell from about 201 MB to 97 MB on this machine. All 194 state/scale/label PNGs match the released version pixel-for-pixel. The clip uses WebP quality 0.95 with lossless alpha.
 
-The released EXE is 25,602,048 bytes (25.6 MB), identical to the verified local edge-fix build. Its embedded clip uses JPEG XR colour quality 0.95 with lossless alpha; the source also retains the WebP packaging option. Further memory and size optimization is separate from this release. See [verification](verification/arm-edge-v17/README.md).
+The published GitHub release remains v1.2.0, the verified edge-fix build. See the [local optimization record](verification/memory-storage-v18/README.md) for measurements and validation.

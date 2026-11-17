@@ -1,0 +1,169 @@
+{
+  "payloadVersion": "3b8547d593356ca2d37241c9",
+  "files": [
+    "MilkFrog.exe",
+    "config.txt",
+    "license.md",
+    "base.png",
+    "body-pressed.png",
+    "exit-pose.png",
+    "tabletop.png",
+    "keyboard-corner.png",
+    "hands-runtime.png",
+    "hands-runtime.txt",
+    "keyboard-4k.png",
+    "keyboard-6k.png",
+    "keyboard-8k.png",
+    "laugh-frames.mfa",
+    "laugh.wav",
+    "msvcp140.dll",
+    "sfml-graphics-2.dll",
+    "sfml-system-2.dll",
+    "sfml-window-2.dll",
+    "vcruntime140.dll"
+  ],
+  "fileCount": 20,
+  "resources": [
+    {
+      "name": "MilkFrog.exe",
+      "runtimeBytes": 735232,
+      "embeddedBytes": 270790,
+      "compression": 5
+    },
+    {
+      "name": "config.txt",
+      "runtimeBytes": 36,
+      "embeddedBytes": 36,
+      "compression": 0
+    },
+    {
+      "name": "license.md",
+      "runtimeBytes": 1249,
+      "embeddedBytes": 1249,
+      "compression": 0
+    },
+    {
+      "name": "base.png",
+      "runtimeBytes": 322245,
+      "embeddedBytes": 322245,
+      "compression": 0
+    },
+    {
+      "name": "body-pressed.png",
+      "runtimeBytes": 328065,
+      "embeddedBytes": 328065,
+      "compression": 0
+    },
+    {
+      "name": "exit-pose.png",
+      "runtimeBytes": 530243,
+      "embeddedBytes": 530243,
+      "compression": 0
+    },
+    {
+      "name": "tabletop.png",
+      "runtimeBytes": 54263,
+      "embeddedBytes": 54263,
+      "compression": 0
+    },
+    {
+      "name": "keyboard-corner.png",
+      "runtimeBytes": 3558,
+      "embeddedBytes": 3558,
+      "compression": 0
+    },
+    {
+      "name": "hands-runtime.png",
+      "runtimeBytes": 774897,
+      "embeddedBytes": 774897,
+      "compression": 0
+    },
+    {
+      "name": "hands-runtime.txt",
+      "runtimeBytes": 17,
+      "embeddedBytes": 17,
+      "compression": 0
+    },
+    {
+      "name": "keyboard-4k.png",
+      "runtimeBytes": 43539,
+      "embeddedBytes": 43539,
+      "compression": 0
+    },
+    {
+      "name": "keyboard-6k.png",
+      "runtimeBytes": 47200,
+      "embeddedBytes": 47200,
+      "compression": 0
+    },
+    {
+      "name": "keyboard-8k.png",
+      "runtimeBytes": 51476,
+      "embeddedBytes": 51476,
+      "compression": 0
+    },
+    {
+      "name": "laugh-frames.mfa",
+      "runtimeBytes": 11125492,
+      "embeddedBytes": 11125492,
+      "compression": 0
+    },
+    {
+      "name": "laugh.wav",
+      "runtimeBytes": 829518,
+      "embeddedBytes": 401002,
+      "compression": 5
+    },
+    {
+      "name": "msvcp140.dll",
+      "runtimeBytes": 618944,
+      "embeddedBytes": 163396,
+      "compression": 5
+    },
+    {
+      "name": "sfml-graphics-2.dll",
+      "runtimeBytes": 759808,
+      "embeddedBytes": 346102,
+      "compression": 5
+    },
+    {
+      "name": "sfml-system-2.dll",
+      "runtimeBytes": 45568,
+      "embeddedBytes": 17910,
+      "compression": 5
+    },
+    {
+      "name": "sfml-window-2.dll",
+      "runtimeBytes": 126976,
+      "embeddedBytes": 50838,
+      "compression": 5
+    },
+    {
+      "name": "vcruntime140.dll",
+      "runtimeBytes": 123328,
+      "embeddedBytes": 56688,
+      "compression": 5
+    }
+  ],
+  "imageOptimization": {
+    "codec": "webp",
+    "quality": 0.95,
+    "source_bytes": 56747754,
+    "encoded_bytes": 11125492,
+    "frames": 216,
+    "bytes_per_frame": 51506.9,
+    "max_alpha_error": 0,
+    "lossless_alpha": true,
+    "source_sha256": "0a296825ef03f80fac97cd7988cc58f1c40c64e67756e5a6afba8f193c95479a"
+  },
+  "removedUnusedDlls": [
+    "concrt140.dll",
+    "msvcp140_1.dll",
+    "msvcp140_2.dll",
+    "msvcp140_atomic_wait.dll",
+    "msvcp140_codecvt_ids.dll",
+    "vccorlib140.dll",
+    "vcruntime140_threads.dll"
+  ],
+  "outputBytes": 14923264
+}

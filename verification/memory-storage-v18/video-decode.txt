@@ -1,0 +1,2 @@
+216 frames; decode p95=8.8287ms, max=112.523ms
+PASS: physical F5/restart, repeat suppression, gameplay cancellation, rebound keys, completion and transparency.

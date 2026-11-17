@@ -1,0 +1,9 @@
+{
+  "hand_pixels_before_bytes": 101816448,
+  "hand_pixels_after_bytes": 7332992,
+  "shadow_pixels_before_bytes": 34944000,
+  "shadow_pixels_after_bytes": 7018720,
+  "duplicate_hand_pixels_removed_bytes": 25454112,
+  "decoded_atlas_before_bytes": 101816448,
+  "decoded_atlas_after_bytes": 19430400
+}

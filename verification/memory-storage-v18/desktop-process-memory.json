@@ -1,0 +1,14 @@
+[
+  {
+    "version": "before",
+    "launcher_resident": true,
+    "total_working_set": 201498624,
+    "total_private_bytes": 82440192
+  },
+  {
+    "version": "after",
+    "launcher_resident": false,
+    "total_working_set": 96948224,
+    "total_private_bytes": 75767808
+  }
+]

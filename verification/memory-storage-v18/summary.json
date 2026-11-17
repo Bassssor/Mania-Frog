@@ -1,0 +1,15 @@
+{
+  "exe_bytes_before": 25602048,
+  "exe_bytes_after": 14923264,
+  "expanded_runtime_bytes_before": 27199340,
+  "expanded_runtime_bytes_after": 16521654,
+  "desktop_working_set_before": 201498624,
+  "desktop_working_set_after": 96948224,
+  "render_working_set_before": 175845785.6,
+  "render_working_set_after": 103077273.6,
+  "startup_peak_working_set_before": 372621312.0,
+  "startup_peak_working_set_after": 132599808.0,
+  "native_pngs_equal": 194,
+  "obs_parts_equal": 69,
+  "sha256": "b53347ca463ef56e8b10e929367c93f2fe5bf25061774aa96d78a85ddd65c5e0"
+}

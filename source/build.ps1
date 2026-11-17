@@ -14,6 +14,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $repository 'SFML\SFML\milk-frog.ico
 }
 $laneAssets=Join-Path $repository 'assets\milk-frog\four-finger'
 Copy-Item -Path (Join-Path $laneAssets '*.png') -Destination (Join-Path $repository 'SFML\SFML') -Force
+& python (Join-Path $repository 'tools\PackRuntimeHands.py')
+if($LASTEXITCODE -ne 0){throw 'Runtime hand atlas packing failed'}
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 if (-not (Test-Path -LiteralPath $vswhere)) { throw 'Visual Studio C++ build tools are required.' }
 $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
@@ -43,5 +45,6 @@ if(Test-Path -LiteralPath $fixture){
     New-Item -ItemType Directory -Path $target -Force | Out-Null
     Copy-Item -Path (Join-Path $fixture 'base*.png') -Destination $target -Force
     Copy-Item -Path (Join-Path $laneAssets '*.png') -Destination $target -Force
+    Copy-Item -LiteralPath (Join-Path $repository 'SFML\SFML\hands-runtime.png'),(Join-Path $repository 'SFML\SFML\hands-runtime.txt') -Destination $target -Force
 }
 Write-Output ('Built: ' + (Join-Path $output 'MilkFrog.exe'))

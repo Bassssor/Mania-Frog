@@ -77,10 +77,8 @@ def main():
     installation=subprocess.check_output([str(vswhere),'-latest','-products','*','-requires',
         'Microsoft.VisualStudio.Component.VC.Tools.x86.x64','-property','installationPath'],text=True).strip()
     if not installation:raise RuntimeError('Visual Studio C++ Build Tools are required')
-    names=['MilkFrog.exe','config.txt','license.md','base.png','base_0001.png',
-        'base_0010.png','base_0011.png','base_0100.png','base_1000.png',
-        'base_1100.png','base_left.png','base_right.png','body-pressed.png','exit-pose.png',
-        'tabletop.png','keyboard-corner.png','hands-4k.png','hands-6k.png','hands-8k.png','keyboard-4k.png','keyboard-6k.png','keyboard-8k.png','laugh-frames.mfa','laugh.wav']
+    names=['MilkFrog.exe','config.txt','license.md','base.png','body-pressed.png','exit-pose.png',
+        'tabletop.png','keyboard-corner.png','hands-runtime.png','hands-runtime.txt','keyboard-4k.png','keyboard-6k.png','keyboard-8k.png','laugh-frames.mfa','laugh.wav']
     available={p.name.lower():p.name for p in folder.glob('*.dll')}
     pending=[folder/'MilkFrog.exe'];required=set()
     while pending:

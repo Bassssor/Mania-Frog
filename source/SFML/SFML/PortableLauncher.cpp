@@ -104,6 +104,9 @@ int WINAPI wWinMain(HINSTANCE module,HINSTANCE,wchar_t *arguments,int) {
         if(!CreateProcessW(executable.c_str(),command.data(),nullptr,nullptr,FALSE,0,nullptr,folder.c_str(),&startup,&process))
             return fail(L"无法启动奶蛙桌宠。");
         Handle child(process.hProcess),thread(process.hThread);
+        // Ordinary launches leave only the renderer resident. Command-line
+        // exports and verification still wait and propagate the child's result.
+        if(!arguments || !*arguments)return 0;
         WaitForSingleObject(child.value,INFINITE);DWORD result=1;GetExitCodeProcess(child.value,&result);
         return static_cast<int>(result);
     } catch(...) {return fail(L"准备奶蛙运行环境时发生错误。");}
