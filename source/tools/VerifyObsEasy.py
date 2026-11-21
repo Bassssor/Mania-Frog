@@ -11,6 +11,7 @@ import subprocess
 import struct
 import uuid
 from PIL import Image, ImageChops
+from VerifyObsUninstall import verify_uninstall
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -112,6 +113,7 @@ def main():
               'foreign source name rejected', 'missing update rejected', 'pending result truthful',
               'status query', 'portable plugin root', 'legacy keys migrated',
               'custom keys preserved', 'scene config untouched']
+    checks.extend(verify_uninstall(out))
     vswhere = Path(os.environ['ProgramFiles(x86)']) / 'Microsoft Visual Studio/Installer/vswhere.exe'
     vs = subprocess.check_output([str(vswhere), '-latest', '-products', '*', '-requires',
                                   'Microsoft.VisualStudio.Component.VC.Tools.x86.x64',

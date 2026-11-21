@@ -31,7 +31,7 @@ OBS 使用真正的 **Input Overlay / 输入叠加** 源及本项目的原生动
 | 路径 | 内容 |
 | --- | --- |
 | `MilkFrog.exe` | 可直接运行的桌宠，内置运行素材与依赖 |
-| `MilkFrogOBS.exe` | 选择目标场景的一键 OBS 安装入口 |
+| `MilkFrogOBS.exe` | 选择场景安装，或查找并选择卸载 OBS 奶蛙 |
 | `agent.md` | 智能体静默安装、目标确认及结果核验指令 |
 | `obs-input-overlay/` | 原生 OBS 插件、PNG/JSON 预设、图集、视频帧和笑声 |
 | `source/` | 最终 C++ 源码、构建工具、角色素材和必要的 SFML 依赖 |

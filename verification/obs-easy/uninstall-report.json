@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "checks": [
+    "uninstall: installed and legacy file directories listed with paths, counts and bytes",
+    "uninstall: both file copies discoverable after all scene sources are removed",
+    "uninstall: actual GUI controls contain both directories with and without sources; no window shown",
+    "uninstall: scene/group/nested/shared locations and UUID resolution",
+    "uninstall: foreign source names ignored and unused sources discoverable",
+    "uninstall: explicit selection, OBS closed, stale selection and all-reference guards",
+    "uninstall: selected source and all references removed with exact backup",
+    "uninstall: unrelated collection, transforms, source settings and plugin preserved",
+    "uninstall: selected pending imports cancelled in both plugin directories",
+    "uninstall: legacy filter removed without its host or foreign filters",
+    "uninstall: legacy audio, unused sources and pending-only removal",
+    "uninstall: custom config and junction cleanup rejected before mutation",
+    "uninstall: optional file cleanup preserves desktop settings and backups",
+    "uninstall: leftover-only and portable cleanup without UI"
+  ]
+}

@@ -10,6 +10,14 @@ The single native source includes transparency, global keyboard input, particles
 
 The installer uses the Windows OBS 33 plugin layout. It needs write access to `%ProgramData%\obs-studio\plugins\milk-frog-easy`, or `plugins\milk-frog-easy` inside a portable OBS installation. Keep the full download folder together until installation. Existing key bindings are preserved. For assistance through commands without popups, see [agent.md](../agent.md).
 
+## Find and uninstall Milk Frog
+
+Run **MilkFrogOBS.exe** and click **“查找 / 卸载奶蛙”** (Find / uninstall). The checklist shows each source's collection, name, type and all scene/group paths; hover to read the full locations. A shared source is removed from every listed location. The separate plugin/material directory list shows actual paths, sizes and legacy copies, even when no scene sources remain. Exit OBS normally, refresh the list, select the entries, then click **“执行卸载 / 清理”** (Uninstall / clean up). The installer does not terminate OBS.
+
+Plugin files, OBS artwork and key bindings are kept by default. Select the optional cleanup checkbox to remove the one-click plugin directories as well, including the old copy under the configuration directory. Cleanup requires all remaining Milk Frog sources and pending imports to be selected or already removed. It also works if you previously deleted every source in OBS. Desktop shared settings, downloaded files, other plugins and manually installed legacy DLLs are preserved.
+
+Scene configuration files and cancelled imports are backed up before removal; the completion message shows the backup folder. Legacy Milk Frog filters are removed without deleting their host sources. Legacy laughter audio and pending imports can be selected separately. For commands without windows, see [agent.md](../agent.md).
+
 ## Legacy manual integration
 
 The instructions below apply to the older input-overlay integration. New installations should use the unified source above.
