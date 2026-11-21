@@ -2,11 +2,13 @@
 import argparse
 import base64
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import struct
 import uuid
 from PIL import Image, ImageChops
 
@@ -120,6 +122,8 @@ def main():
         f'cl /nologo /std:c++17 /O2 /MT /EHsc /utf-8 /LD /DFROG_FRONTEND_STUB /I"{args.sdk_root}" /Ibuild/obs-easy tools/VerifyObsEasy.cpp /Fobuild/obs-easy/stub.obj /link build/obs-easy/obs.lib /OUT:build/obs-easy/verification/obs-frontend-api.dll /IMPLIB:build/obs-easy/verification/stub.lib',
         'if errorlevel 1 exit /b %errorlevel%',
         f'cl /nologo /std:c++17 /O2 /MT /EHsc /utf-8 /I"{args.sdk_root}" /Ibuild/obs-easy tools/VerifyObsEasy.cpp /Fobuild/obs-easy/verify.obj /Febuild/obs-easy/verification/VerifyObsEasy.exe /link build/obs-easy/obs.lib user32.lib',
+        'if errorlevel 1 exit /b %errorlevel%',
+        f'cl /nologo /std:c++17 /O2 /MT /EHsc /utf-8 /I"{args.sdk_root}" /Ibuild/obs-easy tools/VerifyObsLaugh.cpp /Fobuild/obs-easy/laugh-test.obj /Febuild/obs-easy/verification/VerifyObsLaugh.exe /link build/obs-easy/obs.lib user32.lib shell32.lib ole32.lib windowscodecs.lib gdiplus.lib',
         'exit /b %errorlevel%',
     ]
     command_file = build / 'build-test.cmd'
@@ -153,8 +157,29 @@ def main():
     assert difference[3][1] == 0 and max(channel[1] for channel in difference[:3]) <= 2, difference
     checks.append('transparent native GPU render')
     checks.append('reference render: identical alpha and RGB error <= 2/255')
+    original = ROOT / 'assets/milk-frog/laugh/laugh-frames.mfa'
+    before_pack, after_pack = original.read_bytes(), (data / 'laugh-frames.mfa').read_bytes()
+    assert before_pack[:8] == b'MFLAUGH1' and after_pack[:8] == b'MFLAUGH2'
+    assert struct.unpack_from('<4I', before_pack, 8) == struct.unpack_from('<4I', after_pack, 8) == (720, 720, 24, 216)
+    for frame in range(216):
+        p, n = struct.unpack_from('<QI', before_pack, 24 + frame * 12)
+        q, m = struct.unpack_from('<QI', after_pack, 24 + frame * 12)
+        before = Image.open(io.BytesIO(before_pack[p:p+n])).convert('RGBA')
+        after = Image.open(io.BytesIO(after_pack[q:q+m])).convert('RGBA')
+        assert ImageChops.difference(before.getchannel('A'), after.getchannel('A')).getextrema() == (0, 0), frame
+    command = [str(out / 'VerifyObsLaugh.exe'), str(data), str(original), str(args.obs_root), str(out)]
+    with (out / 'laugh.log').open('w', encoding='utf-8') as log:
+        process = subprocess.run(command, cwd=args.obs_root / 'bin/64bit', env=env,
+                                 stdout=log, stderr=subprocess.STDOUT, timeout=60)
+    if process.returncode:
+        raise AssertionError((out / 'laugh.log').read_text(encoding='utf-8', errors='replace')[-6000:])
+    Image.frombytes('RGBA', (880, 880), (out / 'laugh.rgba').read_bytes()).save(out / 'laugh.png')
     report = {'passed': True, 'installerChecks': checks,
               'native': json.loads((out / 'native-report.json').read_text()),
+              'animation': {**json.loads((out / 'laugh-report.json').read_text()),
+                            'losslessAlphaFrames': 216, 'colorQuality': 95,
+                            'sourceBytes': len(before_pack), 'compactBytes': len(after_pack),
+                            'SHA256': hashlib.sha256(after_pack).hexdigest()},
               'pluginSHA256': hashlib.sha256((installer.parent / 'milk-frog-easy.dll').read_bytes()).hexdigest()}
     (out / 'report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     print(json.dumps(report))

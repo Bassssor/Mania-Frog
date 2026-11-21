@@ -67,6 +67,10 @@ OBS 默认 DFJK，运行 `obs-input-overlay/MilkFrogKeySetup.exe` 可选择 4K /
 可在 [Releases](https://github.com/Bassssor/Mania-Frog/releases/latest) 直接下载 EXE，完整项目的获取方法见 [首页](README.md)。
 构建步骤见 [源码中文说明](source/README.zh.md)。不生成压缩包。
 
+## v1.2.2 OBS 一键安装与体积优化
+
+OBS 安装包从 60.16 MB 缩小到约 **14.66 MB**。大笑动画使用 WebP 95 颜色编码，透明度无损，保持 720×720、24 fps、216 帧和 9 秒时长。待机、敲键素材与 WAV 音频保持原样。[下载 v1.2.2](https://github.com/Bassssor/Mania-Frog/releases/tag/v1.2.2)。
+
 ## v1.2.1 内存与存储优化
 
 v1.2.1 包含内存与存储优化，EXE 为 14,923,264 字节，比 v1.2.0 缩小 41.7%。运行图集压紧并释放重复纹理，普通启动后仅保留桌宠进程。本机待机工作集（含启动器）从约 201 MB 降至 97 MB；194 张状态、缩放及标签图逐像素一致。大笑动画使用 WebP 0.95 颜色质量与无损透明度。

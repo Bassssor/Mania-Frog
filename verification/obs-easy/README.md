@@ -14,5 +14,13 @@
 - 重复 Add 不重复添加；Update 保留位置和可见状态；源名称冲突时拒绝覆盖。
 - 透明 GPU 截图与原始预览加键帽文字对比，透明度逐像素一致，RGB 最大误差不超过 2/255。
 - 销毁场景及插件后无重复销毁错误。
+- 紧凑大笑动画全部 216 帧的 alpha 与原始 PNG 帧逐字节一致，保持尺寸、帧率和时长；颜色为 WebP 95 有损编码。
+- 无窗口测试直接调用生产版渲染和音频实现：216 帧 WIC 解码、首/中/末帧 GPU 透明度对比、共享时钟选帧、笑声非静音输出、敲键同时取消音画和九秒结束。测试不会安装键盘钩子或向系统发送按键。
 
 重新验证：先运行 `source/tools/BuildObsEasy.ps1`，然后运行 `python source/tools/VerifyObsEasy.py --obs-root <OBS目录> --sdk-root <libobs头文件目录>`。原始运行日志、测试配置及截图保留在不纳入版本管理的 `source/build/obs-easy/verification/` 中。
+
+重新生成紧凑动画（在 `source/` 下运行）：
+
+```powershell
+python tools/PrepareLaughPlayback.py encode-pack --input assets/milk-frog/laugh/laugh-frames.mfa --output ../obs-input-overlay/laugh-frames.mfa --codec webp --quality .95 --report build/obs-easy/laugh-encoding.json
+```

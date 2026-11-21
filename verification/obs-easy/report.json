@@ -33,5 +33,23 @@
       "deferred import"
     ]
   },
+  "animation": {
+    "passed": true,
+    "decodedFrames": 216,
+    "gpuAlphaError": 0,
+    "visiblePremultipliedRGBRMSE": 1.16061,
+    "checks": [
+      "production GPU render at frames 0/108/215",
+      "shared playback clock",
+      "audible WAV output",
+      "gameplay cancels video and audio",
+      "nine-second completion"
+    ],
+    "losslessAlphaFrames": 216,
+    "colorQuality": 95,
+    "sourceBytes": 56747754,
+    "compactBytes": 11125492,
+    "SHA256": "9b651ff66ae918905c3819efccb2da9415f22df601bdc67721255ffc402309dc"
+  },
   "pluginSHA256": "96c221c0b5163a2f3bd32f453addabc094dadd8a82e747394de786495d921efd"
 }

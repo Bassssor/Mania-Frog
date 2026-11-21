@@ -74,6 +74,10 @@ The bundled plugin targets 64-bit Windows and OBS 32.2.2. Keep the entire `obs-i
 Download the EXE from [Releases](https://github.com/Bassssor/Mania-Frog/releases/latest). For the complete project, use Code → Download ZIP or `git clone https://github.com/Bassssor/Mania-Frog.git`.
 See the [source instructions](source/README.en.md) to rebuild. No ZIP archive is produced.
 
+## v1.2.2 OBS installer and smaller download
+
+The OBS ZIP shrank from 60.16 MB to approximately **14.66 MB**. Laughter uses WebP quality 95 for color and lossless alpha, retaining 720×720, 24 fps, 216 frames, and nine seconds. Idle/key artwork and WAV audio are unchanged. [Download v1.2.2](https://github.com/Bassssor/Mania-Frog/releases/tag/v1.2.2).
+
 ## v1.2.1 memory and storage improvements
 
 v1.2.1 includes memory and storage improvements. The EXE is 14,923,264 bytes, 41.7% smaller than v1.2.0. Cropped hand/shadow textures, a compact runtime atlas and an exiting bootstrap process reduce resident memory. Measured idle working set including the launcher fell from about 201 MB to 97 MB on this machine. All 194 state/scale/label PNGs match v1.2.0 pixel-for-pixel. The clip uses WebP quality 0.95 with lossless alpha.
