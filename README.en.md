@@ -57,6 +57,8 @@ Uncommon hardware keys use K followed by a two-digit hexadecimal key code.
 
 ## OBS streaming
 
+**Windows OBS 33: download and extract the [OBS installer ZIP](https://github.com/Bassssor/Mania-Frog/releases/latest/download/MilkFrogOBS.zip), run `MilkFrogOBS.exe`, and choose the collection, scene, and source name.** Restart OBS normally after the first install. The source includes the transparent character, key animations, particles, and laughter audio and video. Change key bindings in the source properties. For installation through commands with no popups, read [agent.md](agent.md). The following describes the legacy integration.
+
 Follow the [OBS installation guide](obs-input-overlay/README.en.md) to add a real Input Overlay source, the native animation filter, and the laughter audio source. The desktop EXE is unnecessary for streaming. Disable OBS preview to hide the character locally while keeping it in stream/recording output. Set the audio source to Monitor Off for output-only laughter.
 
 The bundled plugin targets 64-bit Windows and OBS 32.2.2. Keep the entire `obs-input-overlay/` directory together. OBS defaults to DFJK. Run `obs-input-overlay/MilkFrogKeySetup.exe` to select 4K–8K and change gameplay keys and the laughter shortcut; saving updates legends and bindings without restarting OBS. Desktop gameplay preferences are independent; the laughter shortcut is shared.

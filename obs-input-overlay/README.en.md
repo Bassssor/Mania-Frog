@@ -1,6 +1,18 @@
-# Native OBS input overlay
+# Milk Frog one-click OBS setup
 
 [中文](README.zh.md) · [Project home](../README.md)
+
+## Recommended: choose a destination and install
+
+Run **MilkFrogOBS.exe** in the parent folder. Explicitly select the scene collection and scene, enter the source name, and click Install. For an existing unified Milk Frog source, choose Update and enter its exact name. On first installation, restart OBS normally and open the selected collection; the source is added only to the specified scene. If the plugin is already loaded, requests can apply immediately.
+
+The single native source includes transparency, global keyboard input, particles, laughter video and audio. It needs no input-overlay plugin, manually selected assets, filter, separate audio source or desktop companion. Repeated imports reuse the existing source; updates preserve its transform and visibility. A same-named source of another type is rejected. Change bindings from the source properties. Audio monitoring defaults to off.
+
+The installer uses the Windows OBS 33 plugin layout. It needs write access to `%ProgramData%\obs-studio\plugins\milk-frog-easy`, or `plugins\milk-frog-easy` inside a portable OBS installation. Keep the full download folder together until installation. Existing key bindings are preserved. For assistance through commands without popups, see [agent.md](../agent.md).
+
+## Legacy manual integration
+
+The instructions below apply to the older input-overlay integration. New installations should use the unified source above.
 
 A real `input-overlay` source plus the **“奶蛙 DFJK · 原生动作与粒子”** native filter. 4K–8K gameplay inputs drive 16/32/64/128/256 hand combinations, the held-key laughing expression, and yellow particle fountains directly inside OBS. Streaming does not require the desktop executable, a browser source, or a background service.
 

@@ -18,6 +18,10 @@
 
 ## 折磨观众
 
+**Windows OBS 33：下载并解压 [OBS 安装包](https://github.com/Bassssor/Mania-Frog/releases/latest/download/MilkFrogOBS.zip)，双击 `MilkFrogOBS.exe`，选择场景集合、场景和源名称。** 一个原生源已包含透明画面、全局敲键、粒子和笑声，无需另装输入叠加插件或手动配滤镜。首次安装正常重启 OBS 后生效。需要智能体用命令安装时，读取 [agent.md](agent.md)。[详细说明](obs-input-overlay/README.zh.md)
+
+以下为旧版手动集成方式。
+
 OBS 使用真正的 **Input Overlay / 输入叠加** 源及本项目的原生动画滤镜，无需运行桌宠 EXE。关闭 OBS 预览后，角色仍进入直播或录制输出。笑声音频源关闭本地监听即可仅进入输出。
 
 下载完整项目，按照 [OBS 中文说明](obs-input-overlay/README.zh.md) 安装。提供的插件面向 **64 位 Windows、OBS 32.2.2**；OBS 默认 DFJK，可通过 `obs-input-overlay/MilkFrogKeySetup.exe` 选择 4K–8K 并修改敲键及“重开大笑键”，保存后自动更新素材和绑定，无需重启 OBS。OBS 敲键设置独立于桌宠。“重开大笑键”设置会同步到 OBS。
@@ -27,6 +31,8 @@ OBS 使用真正的 **Input Overlay / 输入叠加** 源及本项目的原生动
 | 路径 | 内容 |
 | --- | --- |
 | `MilkFrog.exe` | 可直接运行的桌宠，内置运行素材与依赖 |
+| `MilkFrogOBS.exe` | 选择目标场景的一键 OBS 安装入口 |
+| `agent.md` | 智能体静默安装、目标确认及结果核验指令 |
 | `obs-input-overlay/` | 原生 OBS 插件、PNG/JSON 预设、图集、视频帧和笑声 |
 | `source/` | 最终 C++ 源码、构建工具、角色素材和必要的 SFML 依赖 |
 | `preview/seedance-video/` | 已采用的视频预览、透明视频及处理工具 |

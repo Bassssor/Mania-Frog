@@ -1,0 +1,37 @@
+{
+  "passed": true,
+  "installerChecks": [
+    "silent target listing",
+    "explicit target required",
+    "unknown scene rejected",
+    "foreign source name rejected",
+    "missing update rejected",
+    "pending result truthful",
+    "status query",
+    "portable plugin root",
+    "legacy keys migrated",
+    "custom keys preserved",
+    "scene config untouched",
+    "transparent native GPU render",
+    "reference render: identical alpha and RGB error <= 2/255"
+  ],
+  "native": {
+    "passed": true,
+    "obsVersion": "33.0.1",
+    "checks": [
+      "OBS 33 plugin discovery and load",
+      "wait for frontend scene loading",
+      "explicit scene targeting",
+      "collection isolation",
+      "native render",
+      "integrated audio",
+      "monitoring off",
+      "idempotent add",
+      "update preserves layout",
+      "foreign source collision rejected",
+      "missing update rejected",
+      "deferred import"
+    ]
+  },
+  "pluginSHA256": "96c221c0b5163a2f3bd32f453addabc094dadd8a82e747394de786495d921efd"
+}

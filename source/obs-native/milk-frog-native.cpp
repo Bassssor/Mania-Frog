@@ -4,7 +4,6 @@
 #define NOMINMAX
 #include <windows.h>
 #include <obs-module.h>
-#include <graphics/image-file.h>
 #include <atomic>
 #include <filesystem>
 #include <mutex>
@@ -15,12 +14,28 @@
 #include "../shared/ObsKeyLabels.hpp"
 #include <util/platform.h>
 #include <mmsystem.h>
+#include <shellapi.h>
 
 OBS_DECLARE_MODULE()
 MODULE_EXPORT const char *obs_module_description(void) { return "Milk Frog native input-overlay animation"; }
 MODULE_EXPORT const char *obs_module_name(void) { return "Milk Frog Input Overlay"; }
 
 namespace {
+#ifdef MILK_FROG_EASY
+std::filesystem::path easyFolder;
+std::atomic<bool> importQueued{false}, frontendReady{false};
+using CurrentCollection = char *(*)();
+using CurrentScene = obs_source_t *(*)();
+CurrentCollection currentCollection=nullptr;
+CurrentScene currentScene=nullptr;
+void ProcessImports(void *);
+void QueueImports() {
+    std::error_code error;
+    if(frontendReady && std::filesystem::is_directory(easyFolder/L"requests",error) &&
+       !std::filesystem::is_empty(easyFolder/L"requests",error) && !importQueued.exchange(true))
+        obs_queue_task(OBS_TASK_UI,ProcessImports,nullptr,false);
+}
+#endif
 constexpr float Pi = 3.14159265358979323846f;
 std::atomic<unsigned> heldKeys{0}, strikes[frog::MaxLanes];
 std::thread hookThread;
@@ -102,10 +117,32 @@ struct GraphicsLock {
     GraphicsLock() {obs_enter_graphics();}
     ~GraphicsLock() {obs_leave_graphics();}
 };
+// OBS 33 removed the legacy gs_image_file API. The preset contains only PNGs;
+// decode those with the same Windows GDI+ dependency used for the key labels.
+struct ImageTexture {
+    gs_texture_t *texture=nullptr;
+    unsigned cx=0,cy=0;
+    bool loaded=false;
+    void free(){gs_texture_destroy(texture);texture=nullptr;cx=cy=0;loaded=false;}
+    void load(const char *path) {
+        free();frog::GdiSession session;
+        Gdiplus::Bitmap bitmap(std::filesystem::u8path(path).c_str());
+        if(bitmap.GetLastStatus()!=Gdiplus::Ok)return;
+        cx=bitmap.GetWidth();cy=bitmap.GetHeight();
+        if(!cx || !cy || cx>32768 || cy>32768)return;
+        Gdiplus::Rect rect(0,0,cx,cy);Gdiplus::BitmapData bits{};
+        if(bitmap.LockBits(&rect,Gdiplus::ImageLockModeRead,PixelFormat32bppPARGB,&bits)!=Gdiplus::Ok)return;
+        std::vector<uint8_t> pixels(size_t(cx)*cy*4);
+        for(unsigned y=0;y<cy;++y){auto *row=static_cast<uint8_t*>(bits.Scan0)+ptrdiff_t(y)*bits.Stride;
+            for(unsigned x=0;x<cx;++x){auto *p=&pixels[(size_t(y)*cx+x)*4];p[0]=row[x*4+2];p[1]=row[x*4+1];p[2]=row[x*4];p[3]=row[x*4+3];}}
+        bitmap.UnlockBits(&bits);const uint8_t *data=pixels.data();
+        texture=gs_texture_create(cx,cy,GS_RGBA,1,&data,0);loaded=texture!=nullptr;
+    }
+};
 struct PartAtlas {
-    gs_image_file4_t image{};
+    ImageTexture image;
     unsigned x=0,y=0,width=0,height=0,columns=0,count=0;
-    void free(){gs_image_file4_free(&image);}
+    void free(){image.free();}
     bool load(obs_data_t *spec,const std::filesystem::path& directory) {
         free();if(!spec)return false;
         x=unsigned(obs_data_get_int(spec,"x"));y=unsigned(obs_data_get_int(spec,"y"));
@@ -113,12 +150,12 @@ struct PartAtlas {
         columns=unsigned(obs_data_get_int(spec,"columns"));count=unsigned(obs_data_get_int(spec,"count"));
         if(!width || !height || width>880 || height>880 || !columns || columns>4 || !count || count>32)return false;
         const auto path=(directory/std::filesystem::u8path(obs_data_get_string(spec,"file"))).u8string();
-        gs_image_file4_init(&image,path.c_str(),GS_IMAGE_ALPHA_PREMULTIPLY);gs_image_file4_init_texture(&image);
-        const auto& file=image.image3.image2.image;
+        image.load(path.c_str());
+        const auto& file=image;
         return file.loaded && file.cx==(width+3)*columns+2 && file.cy==(height+3)*((count+columns-1)/columns)+2;
     }
     void draw(unsigned index) {
-        auto *texture=image.image3.image2.image.texture;if(!texture || index>=count)return;
+        auto *texture=image.texture;if(!texture || index>=count)return;
         auto *effect=obs_get_base_effect(OBS_EFFECT_DEFAULT);
         gs_effect_set_texture(gs_effect_get_param_by_name(effect,"image"),texture);
         gs_matrix_push();gs_matrix_translate3f(float(x),float(y),0);
@@ -128,8 +165,9 @@ struct PartAtlas {
 };
 struct Filter {
     obs_source_t *source;
+    bool standalone=false;
     std::string configPath;
-    gs_image_file4_t background{}, foreground{};
+    ImageTexture background,foreground;
     std::array<PartAtlas,4> parts{}; // Body, desk, hands, multiplicative arm shadows.
     bool separatedParts=false;
     gs_texture_t *halo = nullptr;
@@ -150,7 +188,7 @@ struct Filter {
     std::mutex mutex;
     std::vector<Vertex> glow, solid, trail;
 
-    explicit Filter(obs_source_t *s): source(s) {
+    explicit Filter(obs_source_t *s,bool input=false): source(s),standalone(input) {
         for(unsigned i=0;i<frog::MaxLanes;++i) seen[i]=strikes[i].load();
         glow.reserve(2048*6+64); solid.reserve(2048*60+1600); trail.reserve(2048*2);
         obs_enter_graphics();
@@ -180,7 +218,7 @@ struct Filter {
     }
     ~Filter() {
         obs_enter_graphics();
-        gs_image_file4_free(&background); gs_image_file4_free(&foreground);
+        background.free();foreground.free();
         for(auto& part:parts)part.free();
         gs_texture_destroy(halo); gs_effect_destroy(effect); gs_texrender_destroy(composed);
         gs_texture_destroy(laughTexture);gs_texture_destroy(labelsTexture);
@@ -188,8 +226,8 @@ struct Filter {
         obs_leave_graphics();
     }
     bool validAtlas(unsigned lanes) const {
-        const auto& b=background.image3.image2.image;
-        const auto& f=foreground.image3.image2.image;
+        const auto& b=background;
+        const auto& f=foreground;
         const unsigned rows=((1u<<lanes)+atlasColumns-1)/atlasColumns;
         return b.loaded && f.loaded && b.cx==atlasColumns*883+2 && b.cy==rows*883+2
             && f.cx==b.cx && f.cy==b.cy && effect && halo && composed
@@ -233,10 +271,7 @@ struct Filter {
             } else {
             auto bg=(dir/std::filesystem::u8path(obs_data_get_string(spec,"background_atlas"))).u8string();
             auto fg=(dir/std::filesystem::u8path(obs_data_get_string(spec,"foreground_atlas"))).u8string();
-            gs_image_file4_free(&background); gs_image_file4_free(&foreground);
-            gs_image_file4_init(&background,bg.c_str(),GS_IMAGE_ALPHA_PREMULTIPLY);
-            gs_image_file4_init(&foreground,fg.c_str(),GS_IMAGE_ALPHA_PREMULTIPLY);
-            gs_image_file4_init_texture(&background); gs_image_file4_init_texture(&foreground);
+            background.load(bg.c_str());foreground.load(fg.c_str());
             loaded=validAtlas(4);
             }
         }
@@ -254,9 +289,7 @@ struct Filter {
                 const auto dir=std::filesystem::u8path(configPath).parent_path();
                 const auto bg=(dir/("background-"+std::to_string(currentKeys.size())+"k-atlas.png")).u8string();
                 const auto fg=(dir/("foreground-"+std::to_string(currentKeys.size())+"k-atlas.png")).u8string();
-                gs_image_file4_free(&background);gs_image_file4_free(&foreground);
-                gs_image_file4_init(&background,bg.c_str(),GS_IMAGE_ALPHA_PREMULTIPLY);gs_image_file4_init_texture(&background);
-                gs_image_file4_init(&foreground,fg.c_str(),GS_IMAGE_ALPHA_PREMULTIPLY);gs_image_file4_init_texture(&foreground);
+                background.load(bg.c_str());foreground.load(fg.c_str());
                 atlasColumns=currentKeys.size()==4?4:8;
                 loaded=validAtlas(unsigned(currentKeys.size()));
             }
@@ -351,8 +384,8 @@ struct Filter {
     }
     void render() {
         std::lock_guard<std::mutex> lock(mutex);
-        auto *parent=obs_filter_get_parent(source);
-        if(!loaded || !parent || std::string(obs_source_get_id(parent))!="input-overlay") {
+        auto *parent=standalone?nullptr:obs_filter_get_parent(source);
+        if(!loaded || (!standalone && (!parent || std::string(obs_source_get_id(parent))!="input-overlay"))) {
             if(parent)obs_source_skip_video_filter(source);return;
         }
         if(dirty) {
@@ -388,7 +421,7 @@ struct Filter {
                         parts[3].draw(16+frog::RightPose(held,unsigned(labelKeys.size())));
                         gs_blend_function(GS_BLEND_ONE,GS_BLEND_INVSRCALPHA);
                         parts[1].draw(parts[1].count==3?frog::KeyboardIndex(unsigned(labelKeys.size())):unsigned(labelKeys.size())-4);
-                    } else sprite(background.image3.image2.image.texture);
+                    } else sprite(background.texture);
                     if(dynamicLabels && labelsTexture) {
                         auto *labelEffect=obs_get_base_effect(OBS_EFFECT_DEFAULT);
                         gs_effect_set_texture(gs_effect_get_param_by_name(labelEffect,"image"),labelsTexture);
@@ -399,7 +432,7 @@ struct Filter {
                     if(separatedParts) {
                         parts[2].draw(frog::LeftPose(held,unsigned(labelKeys.size())));
                         parts[2].draw(16+frog::RightPose(held,unsigned(labelKeys.size())));
-                    } else sprite(foreground.image3.image2.image.texture);
+                    } else sprite(foreground.texture);
                     if(particlesEnabled)particles(1);
                 }
                 gs_blend_state_pop();gs_texrender_end(composed);dirty=false;
@@ -477,6 +510,77 @@ struct LaughAudio {
     }
     ~LaughAudio(){stopping=true;if(worker.joinable())worker.join();}
 };
+#ifdef MILK_FROG_EASY
+struct NativeSource {
+    Filter video;
+    LaughAudio audio;
+    explicit NativeSource(obs_source_t *source):video(source,true),audio(source) {}
+    void update(obs_data_t *settings) {video.update(settings);audio.update(settings);}
+};
+void ImportResult(const std::filesystem::path& request,obs_data_t *data,const char *status,const char *message) {
+    obs_data_set_string(data,"status",status);obs_data_set_string(data,"message",message);
+    std::error_code error;std::filesystem::create_directories(easyFolder/L"results",error);
+    const auto result=(easyFolder/L"results"/request.filename()).u8string();
+    if(obs_data_save_json_safe(data,result.c_str(),"tmp",nullptr))std::filesystem::remove(request,error);
+}
+void ProcessImports(void *) {
+    if(!frontendReady){importQueued=false;return;}
+    // Module post-load precedes scene loading on startup. Wait for the frontend
+    // to have a scene before judging queued destination names.
+    auto *readyScene=currentScene?currentScene():nullptr;
+    if(!readyScene){importQueued=false;return;}obs_source_release(readyScene);
+    char *active=currentCollection?currentCollection():nullptr;
+    if(!active){importQueued=false;return;}
+    const std::string collection=active;bfree(active);
+    std::error_code error;
+    bool changed=false;
+    for(const auto& entry:std::filesystem::directory_iterator(easyFolder/L"requests",error)) {
+        if(entry.path().extension()!=L".json")continue;
+        auto *request=obs_data_create_from_json_file(entry.path().u8string().c_str());
+        if(!request)continue;
+        const std::string wanted=obs_data_get_string(request,"collection");
+        if(wanted!=collection){obs_data_release(request);continue;}
+        const std::string sceneName=obs_data_get_string(request,"scene"),name=obs_data_get_string(request,"source");
+        auto *sceneSource=obs_get_source_by_name(sceneName.c_str());
+        auto *scene=sceneSource?obs_scene_from_source(sceneSource):nullptr;
+        auto *source=name.empty()?nullptr:obs_get_source_by_name(name.c_str());
+        obs_sceneitem_t *existing=nullptr;
+        if(scene && source)obs_scene_enum_items(scene,[](obs_scene_t*,obs_sceneitem_t *item,void *data){
+            auto **pair=static_cast<void**>(data);
+            if(obs_sceneitem_get_source(item)==pair[0]){*static_cast<obs_sceneitem_t**>(pair[1])=item;return false;}return true;
+        },std::array<void*,2>{source,&existing}.data());
+        const bool update=std::string(obs_data_get_string(request,"action"))=="Update";
+        if(!scene || name.empty() || (source && std::string(obs_source_get_id(source))!="milk_frog_source") || (update && !existing)) {
+            ImportResult(entry.path(),request,"error","Target scene/source is missing or the source name belongs to another source type.");
+        } else {
+            if(!source)source=obs_source_create("milk_frog_source",name.c_str(),nullptr,nullptr);
+            if(!source)ImportResult(entry.path(),request,"error","Unable to create the Milk Frog source.");
+            else {
+                if(update){auto *settings=obs_source_get_settings(source);obs_source_update(source,settings);obs_data_release(settings);}
+                bool added=false;
+                if(!existing) {
+                    existing=obs_scene_add(scene,source);added=existing!=nullptr;
+                    if(existing){
+                        obs_video_info video{};obs_get_video_info(&video);
+                        const float scale=std::min(400.f,float(video.base_width)*.3f)/880.f;
+                        vec2 size{scale,scale},position{std::max(0.f,float(video.base_width)-880*scale-20),std::max(0.f,float(video.base_height)-712*scale-20)};
+                        obs_sceneitem_set_scale(existing,&size);obs_sceneitem_set_pos(existing,&position);
+                        obs_sceneitem_crop crop{0,0,0,168};obs_sceneitem_set_crop(existing,&crop);
+                    }
+                }
+                obs_data_set_bool(request,"added",added);
+                changed=changed || added || update;
+                ImportResult(entry.path(),request,existing?"complete":"error",existing?"Milk Frog is ready in the specified scene.":"Unable to add the source to the scene.");
+                blog(LOG_INFO,"[milk-frog-easy] %s / %s / %s: %s",collection.c_str(),sceneName.c_str(),name.c_str(),existing?"ready":"failed");
+            }
+        }
+        if(source)obs_source_release(source);if(sceneSource)obs_source_release(sceneSource);obs_data_release(request);
+    }
+    if(changed){auto module=GetModuleHandleW(L"obs-frontend-api.dll");
+        auto save=module?reinterpret_cast<void(*)()>(GetProcAddress(module,"obs_frontend_save")):nullptr;if(save)save();}
+    importQueued=false;
+}
+#endif
 }
 
 MODULE_EXPORT bool obs_module_load(void) {
@@ -488,12 +592,40 @@ MODULE_EXPORT bool obs_module_load(void) {
         heldKeys=frog::ObsHeldMask(gameplayKeys,playback.pressed);
         const UINT_PTR timer=SetTimer(nullptr,0,300,nullptr);
         while(GetMessageW(&message,nullptr,0,0)>0) {
-            if(message.message==WM_TIMER && message.wParam==timer){reloadLaughHotkey();reloadGameplayBindings();}
+            if(message.message==WM_TIMER && message.wParam==timer){
+                reloadLaughHotkey();reloadGameplayBindings();
+#ifdef MILK_FROG_EASY
+                QueueImports();
+#endif
+            }
             else {TranslateMessage(&message);DispatchMessageW(&message);}
         }
         if(timer)KillTimer(nullptr,timer);
         if(keyboardHook)UnhookWindowsHookEx(keyboardHook);keyboardHook=nullptr;
     });
+#ifdef MILK_FROG_EASY
+    char *preset=obs_module_file("milk-frog.json");
+    if(preset){easyFolder=std::filesystem::u8path(preset).parent_path();bfree(preset);}
+    obs_source_info input{};
+    input.id="milk_frog_source";input.type=OBS_SOURCE_TYPE_INPUT;input.output_flags=OBS_SOURCE_VIDEO|OBS_SOURCE_AUDIO|OBS_SOURCE_CUSTOM_DRAW;
+    input.get_name=[](void*){return "奶蛙（敲键、粒子、笑声一体）";};
+    input.create=[](obs_data_t *s,obs_source_t *source)->void*{auto *n=new NativeSource(source);n->update(s);n->audio.start();return n;};
+    input.destroy=[](void *p){delete static_cast<NativeSource*>(p);};
+    input.update=[](void *p,obs_data_t *s){static_cast<NativeSource*>(p)->update(s);};
+    input.video_tick=[](void *p,float dt){static_cast<NativeSource*>(p)->video.tick(dt);};
+    input.video_render=[](void *p,gs_effect_t*){static_cast<NativeSource*>(p)->video.render();};
+    input.get_width=[](void*)->uint32_t{return 880;};input.get_height=[](void*)->uint32_t{return 880;};
+    input.get_defaults=[](obs_data_t *s){
+        obs_data_set_default_bool(s,"particles",true);
+        obs_data_set_default_string(s,"config_file",(easyFolder/L"milk-frog.json").u8string().c_str());
+        obs_data_set_default_string(s,"audio_file",(easyFolder/L"laugh.wav").u8string().c_str());
+    };
+    input.get_properties=[](void*){auto *p=obs_properties_create();
+        obs_properties_add_bool(p,"particles","黄色喷泉粒子");
+        obs_properties_add_button(p,"key_setup","修改模式、键位与大笑快捷键…",[](obs_properties_t*,obs_property_t*,void*)->bool{
+            ShellExecuteW(nullptr,L"open",(easyFolder/L"MilkFrogKeySetup.exe").c_str(),nullptr,easyFolder.c_str(),SW_SHOWNORMAL);return false;});return p;};
+    obs_register_source(&input);
+#else
     obs_source_info info{};
     info.id="milk_frog_native_animation";info.type=OBS_SOURCE_TYPE_FILTER;info.output_flags=OBS_SOURCE_VIDEO|OBS_SOURCE_CUSTOM_DRAW;
     info.get_name=[](void*){return "奶蛙 DFJK · 原生动作与粒子";};
@@ -517,10 +649,22 @@ MODULE_EXPORT bool obs_module_load(void) {
     audio.update=[](void *p,obs_data_t *s){static_cast<LaughAudio*>(p)->update(s);};
     audio.get_properties=[](void*){auto *p=obs_properties_create();obs_properties_add_path(p,"audio_file","笑声文件",OBS_PATH_FILE,"WAV (*.wav)",nullptr);return p;};
     obs_register_source(&audio);
+#endif
     blog(LOG_INFO,"[milk-frog] Native input-overlay animation loaded (no browser/websocket).");
     return true;
 }
 MODULE_EXPORT void obs_module_unload(void) {
+#ifdef MILK_FROG_EASY
+    frontendReady=false;
+#endif
     DWORD id=hookThreadId.load();if(id)PostThreadMessageW(id,WM_QUIT,0,0);
     if(hookThread.joinable())hookThread.join();
 }
+#ifdef MILK_FROG_EASY
+MODULE_EXPORT void obs_module_post_load(void) {
+    auto module=GetModuleHandleW(L"obs-frontend-api.dll");
+    currentCollection=module?reinterpret_cast<CurrentCollection>(GetProcAddress(module,"obs_frontend_get_current_scene_collection")):nullptr;
+    currentScene=module?reinterpret_cast<CurrentScene>(GetProcAddress(module,"obs_frontend_get_current_scene")):nullptr;
+    frontendReady=currentCollection && currentScene && !easyFolder.empty();
+}
+#endif

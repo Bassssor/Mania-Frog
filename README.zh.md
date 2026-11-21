@@ -47,6 +47,10 @@
 
 ## OBS 直播
 
+**Windows OBS 33：下载并解压 [OBS 安装包](https://github.com/Bassssor/Mania-Frog/releases/latest/download/MilkFrogOBS.zip)，双击 `MilkFrogOBS.exe`，选择场景集合、场景和奶蛙源名称。** 首次安装后正常重启 OBS，透明画面、敲键、粒子和笑声会一起加入指定场景。源属性里可直接修改键位。更新保留键位和源的位置。
+
+需要智能体全程用指令、无弹窗安装时，读取 [agent.md](agent.md)。支持列出真实目标、指定场景及源、静默安装和查询结果；不会默认往当前场景添加，也不会擅自重启 OBS。详细步骤见 [OBS 说明](obs-input-overlay/README.zh.md)。以下是旧版手动集成说明。
+
 按照 [OBS 中文说明](obs-input-overlay/README.zh.md) 添加真正的输入叠加源、原生动画滤镜和笑声音频源。直播时无需运行桌宠 EXE；关闭 OBS 预览后，角色只显示在直播或录制输出。将笑声音频监听设为关闭，可只让观众听到。
 
 提供的插件面向 64 位 Windows、OBS 32.2.2。保留完整 `obs-input-overlay/` 目录，PNG、JSON、图集、`laugh-frames.mfa` 和 `laugh.wav` 不要分开移动。
